@@ -1,0 +1,21 @@
+[{
+   "key": "1",
+   "name": "Alice Demo",
+   "custom": {
+
+   }
+},
+{
+  "key": "2",
+   "name": "Bob Demo",
+   "custom": {
+      "beta": true
+   }
+},
+{
+  "key": "3",
+   "name": "Carol Demo",
+   "custom": {
+     "beta": true
+  }
+}]
