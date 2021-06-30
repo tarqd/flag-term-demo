@@ -39,7 +39,9 @@ const randomUsers = generateUsers()
 async function refreshUsers() {
   const data = await readFile('./users.json', {encoding: 'utf8' })
   exampleUsers = JSON.parse(data).map(example.getUser)
-  return exampleUsers.concat(randomUsers.slice(0, randomUsers.length - exampleUsers.length))
+  return exampleUsers.concat(randomUsers.slice(0, randomUsers.length - exampleUsers.length).map(v => {
+    return example.getUser(v)
+  }))
 }
 
 const screen = blessed.screen({
@@ -163,9 +165,10 @@ screen.key(['escape', 'q', 'C-c'], async function(ch, key) {
 });
 
 async function main() {
+
   await ld.waitForInitialization();
   const watcher = createWatcher()
-  render()
+  
   watcher.on('change', () => {
     render()
   })

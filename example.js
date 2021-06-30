@@ -63,6 +63,8 @@ function getUser(properties) {
 
     const anonymous = faker.datatype.number({min: 1, max: 100}) < 60
     const sessionIdentifer = uuid()
+    const eaps = Array.from(getAllEarlyAccessPrograms())
+    const inEAP = !anonymous && faker.datatype.number({min: 1, max: 100}) < 10
 
     const user = {
       // `key` is a unique, consistent identifier used for rollouts
@@ -84,13 +86,18 @@ function getUser(properties) {
         'Service Version': pkg.version,
         'Service Name': pkg.name,
         'Service Hostname': 'some-server.example.com',
-        // anonymous users probably wouldn't have any opt-ins..
-        'EAP Opt-ins': anonymous ? [] : faker.random.arrayElements(Array.from(getAllEarlyAccessPrograms()), faker.datatype.number({min: 0, max: 3}))
       }
     }
     // merge properties
     const {custom} = user;
-    return Object.assign(user, properties || {}, {custom: Object.assign(custom, properties && properties.custom || {})})
+    return Object.assign({}, user, properties || {}, {custom: Object.assign(custom, properties && properties.custom || {}, 
+    {
+        'EAP Opt-ins': Array.from(
+          new Set(
+            (properties && properties['EAP Opt-ins'] || [])
+            .concat(inEAP ? faker.random.arrayElements(eaps, eaps.length) : []))
+          )
+    })})
 }
 
 
