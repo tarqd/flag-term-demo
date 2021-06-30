@@ -1,21 +1,31 @@
-[{
-   "key": "1",
-   "name": "Alice Demo",
-   "custom": {
-
-   }
-},
+[
+   {
+      "key": "1",
+      "name": "Alice Demo",
+      "custom": {
+         "groups": ["developer"],
+         "is_staff": true,
+         "session": "1FB9FF39-C101-46C9-AFF3-DBA19671BC39"
+      }
+   },
 {
   "key": "2",
    "name": "Bob Demo",
    "custom": {
-      "beta": true
+      "country": ["US"],
+      "groups": ["frontend-team", "developer"],
+      "is_staff": true,
+      "session": "D1F93504-2C67-4269-9157-909D0E7FD3F1"
    }
 },
 {
   "key": "3",
    "name": "Carol Demo",
    "custom": {
-     "beta": true
+       "country": ["Brazil"],
+     "beta_opt_in": ["widget"],
+     "browser": "firefox",
+     "browser_version": "68.8.0",
+     "session": "D1F93504-2C67-4269-9157-909D0E7FD3F1"
   }
 }]
