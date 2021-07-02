@@ -1,6 +1,7 @@
 [
    {
       "key": "1",
+      "anonymous": false,
       "name": "Alice Demo",
       "custom": {
          "Groups": ["development", "staff"],
@@ -10,6 +11,7 @@
 {
   "key": "2",
    "name": "Bob Demo",
+    "anonymous": false,
    "custom": {
      "Session": "D1F93504-2C67-4269-9157-909D0E7FD3F1"
    }
@@ -17,8 +19,11 @@
 {
   "key": "3",
    "name": "Carol Demo",
+    "anonymous": true,
    "custom": {
-      "Groups": ["customer-support", "staff"],
+     "Groups": ["customer-support", "staff"],
+     "Browser": "firefox",
+     "Browser Version": "40.4.2",
      "Session": "D1F93504-2C67-4269-9157-909D0E7FD3F1"
   }
 }]
