@@ -13,7 +13,7 @@ const { config } = require('winston');
 
 let ldClient = null;
 
-const EAP_PREFIX = 'allow-eap-opt-in-'
+const EAP_PREFIX = 'allow-eap-'
 const CONFIGURE_PREFIX = 'configure-'
 const GLOBAL_PREFIX = 'global-'
 /**
