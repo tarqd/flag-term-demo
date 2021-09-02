@@ -14,7 +14,6 @@ const USER_COUNT = GRID_COLS * GRID_ROWS
 const demos = DEMO && DEMO.split(',').map(v => v.trim()) || []
 
 
-
 let exampleUsers = [{
   "key": uuid(),
   "name": "foo"
@@ -60,7 +59,8 @@ async function refreshUsers() {
 }
 
 const screen = blessed.screen({
-  smartCSR: true
+  smartCSR: true,
+  fullUnicode: true
 });
 const userBox = blessed.box({
   
@@ -143,14 +143,15 @@ const allFlagKeys = new Set()
 async function render() {
   const config = example.getConfig()
   const cuser = (custom) => Object.assign({'key': `service/${pkg.name}`, "anonymous": true},{custom: Object.assign({'Demo': demos}, custom)})
-  const dconfig = (key, context) => example.variation(key, cuser(context))
+  const dconfig = (key, context, fallback) => example.variation(key, cuser(context), fallback)
   const users = await refreshUsers()
   const flagKeys = (
     await Promise.all(Array.from(allFlagKeys).map(async (k) => {
     return [k,
-            await dconfig('filter-flag-display-table', {
+            await dconfig('show-table-row', {
               'Flag Key': k
-          })]
+          }, k.startsWith('release-widget'))
+        ]
   })))
     .filter(([k,v]) => v)
     .map(([k]) => k)
@@ -170,14 +171,15 @@ async function render() {
   
   table.push(...rows)
  
-  if (await dconfig('filter-flag-display-table', {'Calculated Row': 'Available EAPs'})) {
+  if (await dconfig('show-table-row', {'Calculated Row': 'Available EAPs'}, false)) {
     const eaps = await Promise.all(exampleUsers.map(user => example.getAvailableEarlyAccessPrograms(user)))
     table.push(['available eaps'].concat(eaps.map(v => v.join(','))))
   }
   userTable.setData(table)
 
+  
   screen.render()
-  const rolloutFlag = config.get('rollout-flag')
+  const rolloutFlag = await dconfig('configure-global-rollout-flag', {}, 'release-widget')
   rolloutBox.setLabel(`[ Rollout: ${rolloutFlag} ]`)
   const evals = await Promise.all(users.map(user => Promise.all([user, variation(rolloutFlag, user)])))
   const renderedCells = await Promise.all(evals.map(async ([user, result]) => {
@@ -189,6 +191,8 @@ async function render() {
     };
 
     const colorKey = 'configure-table-cell-color'
+    
+    
     const symbolKey = 'configure-table-cell-symbol'
 
     const {[colorKey]: color, [symbolKey]: symbol} = await variationMap(cuser(context), {
@@ -206,7 +210,7 @@ async function render() {
 
   
 }
-// Quit on Escape, q, or Control-C.
+
 screen.key(['escape', 'q', 'C-c'], async function(ch, key) {
 
   await ld.flush()

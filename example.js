@@ -13,7 +13,7 @@ const { config } = require('winston');
 
 let ldClient = null;
 
-const EAP_PREFIX = 'allow-early-access-program-'
+const EAP_PREFIX = 'allow-eap-opt-in-'
 const CONFIGURE_PREFIX = 'configure-'
 const GLOBAL_PREFIX = 'global-'
 /**
@@ -78,7 +78,8 @@ function getUser() {
     const username = faker.internet.userName(firstName, lastName)
 
     const groups = ['admin', 'user', 'editor', 'reviewer', 'author']
-    const datacenters = ['us-east-1', 'us-east-2', 'eu-west-1', 'eu-west-2']
+    const regions = ['us-east-1', 'us-east-2', 'eu-west-1', 'eu-west-2']
+
     const browsers = ['Firefox', 'Safari', 'Internet Explorer', 'Google Chrome']
     const browserVersions = {
         'Firefox': ['89.0','89.0', '89.0', '80.0','89.1'],
@@ -90,8 +91,10 @@ function getUser() {
     const browserVersion = faker.random.arrayElement(browserVersions[browser])
 
     const anonymous = faker.datatype.number({min: 1, max: 100}) < 60
-    const sessionIdentifer = uuid()
 
+    const sessionIdentifer = uuid()
+    const region = faker.random.arrayElement(regions)
+    
     return {
       // `key` is a unique, consistent identifier used for rollouts
       // use a Session Identifer for unauthenticated users
@@ -107,11 +110,13 @@ function getUser() {
         'Session': sessionIdentifer,
         'Date of Birth': faker.date.past(50, new Date("Sat Sep 20 1992 21:35:02 GMT+0200 (CEST)")),
         'Tenant': `${faker.lorem.word()} ${faker.company.companySuffix()}`,
+        'Organization': `${faker.lorem.word()} ${faker.company.companySuffix()}`,
         'Country': faker.address.countryCode(),
         'Groups': faker.random.arrayElements(groups, faker.datatype.number({min: 1, max: 3})),
         'Service Version': pkg.version,
         'Service Name': pkg.name,
         'Service Hostname': 'some-server.example.com',
+        'Service Region': region,
         'Browser': browser,
         'Browser Version': browserVersion,
         'Platform': faker.random.arrayElement(['web', 'android', 'ios'])
@@ -145,7 +150,7 @@ async function getAvailableEarlyAccessPrograms(user) {
     const eaps = getAllEarlyAccessPrograms()
     return Promise.all(
         Array.from(eaps)
-        .map(async (v) => [await variation(`allow-early-access-program-${v}`,user, false), v])
+        .map(async (v) => [await variation(`${EAP_PREFIX}${v}`,user, false), v])
     )
     .then(results => 
         results
