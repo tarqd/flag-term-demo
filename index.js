@@ -11,6 +11,9 @@ const { DEMO } = process.env
 const GRID_COLS = 24
 const GRID_ROWS = 80
 const USER_COUNT = GRID_COLS * GRID_ROWS
+
+// make the "random" users repeatable 
+faker.seed(0x2BBA76D0)
 const demos = DEMO && DEMO.split(',').map(v => v.trim()) || []
 
 
@@ -166,7 +169,7 @@ async function render() {
       ))
       )))
     .map(
-      ([first, ...rest]) => [first, ...rest.map(v => v.toString())]
+      ([first, ...rest]) => [first, ...rest.map(v => JSON.stringify(v))]
     )
   
   table.push(...rows)

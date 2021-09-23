@@ -11,8 +11,8 @@
   "key": "2",
    "name": "Bob Demo",
    "custom": {
-     "Session": "D1F93504-2C67-4269-9157-909D0E7FD3F1",
-     "EAP Opt-ins": ["widget"]
+     "Session": "D1F93504-2C67-4269-9157-909D0E7FD3F1" 
+     ,"EAP Opt-ins": ["widget"]
    }
 },
 {

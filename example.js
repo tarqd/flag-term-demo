@@ -23,7 +23,7 @@ const GLOBAL_PREFIX = 'global-'
 function initializeLaunchDarklyClient() {
     return  LaunchDarkly.init(process.env.LD_SDK_KEY, {
             logger,
-            privateAttributeNames: ['Date of Birth']
+            privateAttributeNames: ['Date of Birth', 'Session']
         })
 }
 
@@ -73,7 +73,6 @@ function getLDClient() {
  * @returns {LaunchDarkly.LDUser}
  */
 function getUser() {
-
     const [firstName, lastName] = [faker.name.firstName(), faker.name.lastName()]
     const username = faker.internet.userName(firstName, lastName)
 
@@ -94,6 +93,18 @@ function getUser() {
 
     const sessionIdentifer = uuid()
     const region = faker.random.arrayElement(regions)
+    const addons = ['widget-plus', 
+'widget', 'advanced-metrics', 'ai-powered-upsell'] 
+    const extra = {
+        'Purchased Addons': faker.random.arrayElements(
+            addons,
+            faker.datatype.number({min: 0, max: 3}
+        )),
+        'Active Plan': faker.random.arrayElement(
+            ['basic', 'plus', 'professional', 'enterprise']
+        )
+        
+    }
     
     return {
       // `key` is a unique, consistent identifier used for rollouts
@@ -106,7 +117,7 @@ function getUser() {
       firstName,lastName,
       ip: faker.internet.ip(),
       anonymous: anonymous,
-      custom: {
+      custom: Object.assign({
         'Session': sessionIdentifer,
         'Date of Birth': faker.date.past(50, new Date("Sat Sep 20 1992 21:35:02 GMT+0200 (CEST)")),
         'Tenant': `${faker.lorem.word()} ${faker.company.companySuffix()}`,
@@ -121,7 +132,7 @@ function getUser() {
         'Browser Version': browserVersion,
         'Platform': faker.random.arrayElement(['web', 'android', 'ios'])
 
-      }
+      }, extra)
     }
 }
 
