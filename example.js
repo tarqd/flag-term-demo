@@ -1,5 +1,6 @@
 const EventEmitter = require('events');
-const { createHmac } = require('crypto')
+const { createHmac, createHash } = require('crypto')
+
 
 const LaunchDarkly = require('launchdarkly-node-server-sdk');
 
@@ -7,25 +8,28 @@ const faker = require('faker')
 const {v4: uuid} = require('uuid')
 
 const pkg = require('./package.json')
-const {logger,levels} = require('./logger');
-const { config } = require('winston');
+const {logger, levels, setLoggerLDClient} = require('./logger');
+const {withLDUser} = require('./logger-transport')
 
 
 let ldClient = null;
 
 const EAP_PREFIX = 'allow-eap-'
-const CONFIGURE_PREFIX = 'configure-'
+const CONFIGURE_PREFIX = 'config-'
 const GLOBAL_PREFIX = 'global-'
+
 /**
  * Returns an initalized LaunchDarkly Client
  * @returns {LaunchDarkly.LDClient} 
  */
 function initializeLaunchDarklyClient() {
+
     return  LaunchDarkly.init(process.env.LD_SDK_KEY, {
             logger,
             privateAttributeNames: ['Date of Birth', 'Session']
         })
 }
+
 
 /**
  * Returns an initialized LaunchDarkly Client as a singleton.
@@ -36,6 +40,7 @@ function getLDClient() {
     if (ldClient === null) {
         ldClient = initializeLaunchDarklyClient()
         setupEventListeners(ldClient)
+        setLoggerLDClient(ldClient)
     }
     return ldClient
 }
@@ -75,10 +80,10 @@ function getLDClient() {
 function getUser() {
     const [firstName, lastName] = [faker.name.firstName(), faker.name.lastName()]
     const username = faker.internet.userName(firstName, lastName)
-
+    const email = faker.internet.email(username)
     const groups = ['admin', 'user', 'editor', 'reviewer', 'author']
     const regions = ['us-east-1', 'us-east-2', 'eu-west-1', 'eu-west-2']
-
+    const countryCodes = ['US', 'US', 'US', 'RU', 'CA', 'CA', 'IE', 'GB']
     const browsers = ['Firefox', 'Safari', 'Internet Explorer', 'Google Chrome']
     const browserVersions = {
         'Firefox': ['89.0','89.0', '89.0', '80.0','89.1'],
@@ -94,7 +99,9 @@ function getUser() {
     const sessionIdentifer = uuid()
     const region = faker.random.arrayElement(regions)
     const addons = ['widget-plus', 
-'widget', 'advanced-metrics', 'ai-powered-upsell'] 
+'widget', 'advanced-metrics', 'ai-powered-upsell', 'bill-pay'] 
+    const idMethods = ['sms', 'phone-call']
+    
     const extra = {
         'Purchased Addons': faker.random.arrayElements(
             addons,
@@ -102,7 +109,9 @@ function getUser() {
         )),
         'Active Plan': faker.random.arrayElement(
             ['basic', 'plus', 'professional', 'enterprise']
-        )
+        ),
+        'Supported Methods': faker.random.arrayElement(idMethods),
+        'Risk Score': faker.datatype.number({min: 1, max: 10})
         
     }
     
@@ -111,7 +120,8 @@ function getUser() {
       // use a Session Identifer for unauthenticated users
       // use User Identifer for authenticated users
       key: anonymous ? sessionIdentifer : getUserIdentifer(username),
-      email: faker.internet.email(username),
+      email,
+      avatar: gravatarUrl(email),
       username,
       name: `${firstName} ${lastName}`,
       firstName,lastName,
@@ -122,7 +132,7 @@ function getUser() {
         'Date of Birth': faker.date.past(50, new Date("Sat Sep 20 1992 21:35:02 GMT+0200 (CEST)")),
         'Tenant': `${faker.lorem.word()} ${faker.company.companySuffix()}`,
         'Organization': `${faker.lorem.word()} ${faker.company.companySuffix()}`,
-        'Country': faker.address.countryCode(),
+        'Country': faker.random.arrayElement(countryCodes),
         'Groups': faker.random.arrayElements(groups, faker.datatype.number({min: 1, max: 3})),
         'Service Version': pkg.version,
         'Service Name': pkg.name,
@@ -181,11 +191,7 @@ function setupEventListeners(client) {
 }
 
 
-// map log level number to name (7 => debug, 6 => error, etc)
-const levelNumberToName = new Map(
-    Object.entries(levels)
-          .map(([k,v]) => [v,k])
-)
+
 
 // application configuration 
 const appConfig = new Map();
@@ -202,13 +208,13 @@ async function handleConfiguration(flag) {
     switch (key) {
         // special handling: configure winston
         case 'log-verbosity': 
-            const value = await variation(flag, user, logger.level || 'warn')
-            const level = levelNumberToName.get(value)
+            const level = await variation(flag, user, logger.level || 'warn')
+            
             if(level !== undefined) {
-                logger.level = level
+               // logger.level = level
                 logger.debug('set logging level to %s', level)
             } else {
-                logger.error('invalid configuration value: %s [%d] %s', flag, value, level)
+                logger.error('invalid configuration value: %s %s', flag, level)
             }
             
             break;   
@@ -249,24 +255,15 @@ function stripPrefix(prefix, key) {
     return key.substring(prefix.length)
 }
 
-/*
-async function createUserLogger(user) {
-    const client = getLDClient()
-    const userLevel = await variation('configure-log-verbosity', user)
-    const userLogger = logger.child({user})
-    return Object.create(userLogger, {
-        isLevelEnabled: function (level) {
-            if (userLevel === undefined) {
-                return userLogger.isLevelEnabled(level)
-            }
-            return userLevel <= level
-        }
-    })
-}*/
+
 function getConfig() {
     return appConfig
 }
 
+function gravatarUrl(email) {
+    const hash = createHash('md5').update(email.toLowerCase().trim()).digest('hex')
+    return `https://www.gravatar.com/avatar/${hash}?d=robohash&f=y`
+}
 module.exports = {
     getConfig,
     initializeLaunchDarklyClient,

@@ -11,10 +11,10 @@ const { DEMO } = process.env
 const GRID_COLS = 24
 const GRID_ROWS = 80
 const USER_COUNT = GRID_COLS * GRID_ROWS
-
+const {logger, LD_USER} = require('./logger')
 // make the "random" users repeatable 
 faker.seed(0x2BBA76D0)
-const demos = DEMO && DEMO.split(',').map(v => v.trim()) || []
+const demos = DEMO && DEMO.split(',').map(v => v.trim()) || null
 
 
 let exampleUsers = [{
@@ -22,8 +22,8 @@ let exampleUsers = [{
   "name": "foo"
 }]
 
-function createWatcher() {
-return watcher = chdar.watch('users.json', {
+function createWatcher(file) {
+return watcher = chdar.watch(file, {
   ignored: /(^|[\/\\])\../, // ignore dotfiles
   persistent: true
 });
@@ -42,8 +42,13 @@ const randomUsers = generateUsers()
 let didEAPs = false;
 
 async function refreshUsers() {
-  const data = await readFile('./users.json', {encoding: 'utf8' })
-  exampleUsers = JSON.parse(data)
+  
+  try {
+    const data = await readFile('./users.json', {encoding: 'utf8' })
+    exampleUsers = JSON.parse(data)
+  } catch (e) {
+    logger.error('failed to parse users.json')
+  }
   const randos = randomUsers.slice(0, randomUsers.length - exampleUsers.length);
   const key = 'EAP Opt-ins'
   if (!didEAPs) {
@@ -143,10 +148,19 @@ const ld = example.getLDClient()
 const { variation, variationMap} = example
 const allFlagKeys = new Set()
 
+let demoConfig = {};
+
 async function render() {
   const config = example.getConfig()
-  const cuser = (custom) => Object.assign({'key': `service/${pkg.name}`, "anonymous": true},{custom: Object.assign({'Demo': demos}, custom)})
-  const dconfig = (key, context, fallback) => example.variation(key, cuser(context), fallback)
+  
+  const cuser = (custom) => Object.assign({'key': `service/${pkg.name}`, "anonymous": true},{custom: Object.assign({'Demo': demos}, demoConfig, custom)})
+  const dconfig = (key, context, fallback) => {
+    const user =  cuser(context)
+    return ld.variationDetail(key, user, fallback).then(detail => {
+      logger.debug('dynamic config for ', {key, user, detail, fallback})
+      return detail.value
+    })
+  }
   const users = await refreshUsers()
   const flagKeys = (
     await Promise.all(Array.from(allFlagKeys).map(async (k) => {
@@ -165,7 +179,20 @@ async function render() {
     flagKeys.map(key => 
       Promise.all(
         [key].concat(
-          exampleUsers.map(user => ld.variation(key, user))
+          exampleUsers.map(async (user) => {
+            
+            const detail = await ld.variationDetail(key, user)
+            
+            logger.debug('table: evaluated flag', {
+              [LD_USER]: user,
+               name: user.name,
+               key: user.key,
+               flag: key,
+               ...detail
+              })
+            
+            return detail.value
+          })
       ))
       )))
     .map(
@@ -182,9 +209,18 @@ async function render() {
 
   
   screen.render()
-  const rolloutFlag = await dconfig('configure-global-rollout-flag', {}, 'release-widget')
+  const rolloutFlag = await dconfig('config-rollout-flag', {}, 'release-widget')
   rolloutBox.setLabel(`[ Rollout: ${rolloutFlag} ]`)
-  const evals = await Promise.all(users.map(user => Promise.all([user, variation(rolloutFlag, user)])))
+  const evals = await Promise.all(users.map(async (user) => {
+    const detail = await ld.variationDetail(rolloutFlag, user)
+    logger.debug('rollout: evaluated flag: ', {
+      name: user.name,
+      key: user.key,
+      flag: rolloutFlag,
+      [LD_USER]: user, ...detail}
+    )
+    return [user, detail.value]
+  }))
   const renderedCells = await Promise.all(evals.map(async ([user, result]) => {
     const type = typeof result
     const context = {
@@ -193,10 +229,10 @@ async function render() {
       'Flag Type': type == 'object' ? 'json' : type,
     };
 
-    const colorKey = 'configure-table-cell-color'
+    const colorKey = 'config-table-cell-color'
     
     
-    const symbolKey = 'configure-table-cell-symbol'
+    const symbolKey = 'config-table-cell-symbol'
 
     const {[colorKey]: color, [symbolKey]: symbol} = await variationMap(cuser(context), {
       [colorKey]: !!result ? 'green' : 'blue',
@@ -221,6 +257,19 @@ screen.key(['escape', 'q', 'C-c'], async function(ch, key) {
   process.exit(0)
 });
 
+async function refreshDemoConfig() {
+  
+    try {
+      const data = JSON.parse(await readFile('./demo.json', {encoding: 'utf8' }))
+      demoConfig = data
+      logger.debug('updated demo config', data)
+      render()
+    } catch (e) {
+      logger.error('failed to parse demo.json', e)
+    }
+  
+}
+
 async function main() {
 
 
@@ -230,10 +279,16 @@ async function main() {
     render()
   })
   await ld.waitForInitialization();
-  const watcher = createWatcher()
-  
-  watcher.on('change', () => {
+  refreshDemoConfig()
+  const userWatcher = createWatcher('users.json')
+  const configWatcher = createWatcher('demo.json')
+  userWatcher.on('change', () => {
+    logger.debug('user json change detected')
     render()
+  })
+  configWatcher.on('change',() => {
+    logger.debug('demo config change detected')
+    refreshDemoConfig()
   })
 
 }
