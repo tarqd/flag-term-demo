@@ -32,16 +32,8 @@ function getLDUser(object) {
     return object[LD_USER]
 }
 
-/** 
- * Merges the two or more LD User objects
- * @param {[LaunchDarkly.LDUser]} users
- * @returns {LaunchDarkly.LDUser} user
- */
-function mergeLDUser(...users) {
-    return Array.from(users).reduce((result, {custom, ...attributes}) => {
-         return Object.assign(result, attributes, {custom})
-    })
-}
+
+
 
 
 class LaunchDarklyTransportFilter extends Transform {
@@ -115,7 +107,6 @@ class LaunchDarklyTransportFilter extends Transform {
 module.exports = {
     LaunchDarklyTransportFilter,
     withLDUser,
-    mergeLDUser,
     setLDUser,
     LD_USER
 }

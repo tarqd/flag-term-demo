@@ -47,5 +47,7 @@ const logger = winston.createLogger({
 
 module.exports.logger = logger;
 module.exports.levels = levels;
+module.exports.setDefaultLogLevel = (level) => ldTransport.defaultLevel = level
+module.exports.getDefaultLogLevel = () => ldTransport.defaultLevel
 module.exports.setLoggerLDClient = (c) => ldTransport.setLDClient(c)
 module.exports.LD_USER = LD_USER

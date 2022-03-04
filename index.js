@@ -12,6 +12,12 @@ const GRID_COLS = 24
 const GRID_ROWS = 80
 const USER_COUNT = GRID_COLS * GRID_ROWS
 const {logger, LD_USER} = require('./logger')
+const {withLDUser} = require('./logger-transport')
+const { variation, variationDetail, variationMap} = example
+const {getUser} = require('./user-generator')
+const {mergeLDUser, sessionContext, userContext, serviceContext} = require('./ld-user')
+
+
 // make the "random" users repeatable 
 faker.seed(0x2BBA76D0)
 const demos = DEMO && DEMO.split(',').map(v => v.trim()) || null
@@ -21,6 +27,8 @@ let exampleUsers = [{
   "key": uuid(),
   "name": "foo"
 }]
+
+
 
 function createWatcher(file) {
 return watcher = chdar.watch(file, {
@@ -33,7 +41,7 @@ return watcher = chdar.watch(file, {
 function generateUsers() {
   const users = []
   while (users.length < USER_COUNT) {
-    users.push(example.getUser())
+    users.push(getUser())
   }
   return users
 }
@@ -86,8 +94,9 @@ const userTable = blessed.table({
   parent: userBox,
   fillCellBorders: true,
   scrollable: true,
+  tags: true,
   align: 'left',
-  height: '50%',
+  height: '30%',
   width:'100%',
   border: 'line',
   style: {
@@ -145,43 +154,64 @@ const noop = (info, callback) => {
 }
 
 const ld = example.getLDClient()
-const { variation, variationMap} = example
+
 const allFlagKeys = new Set()
 
 let demoConfig = {};
 
+
+async function getFlagKeysForTable() {
+  const defaultFlags = ['release-widget', 'release-widget-api', 'release-widget-backend'];
+  const flagKeys = []
+  for (const key of allFlagKeys) {
+    const ldUser = demoService("table",{
+      "Flag Key": key
+    })
+
+    const isDefaultFlag = defaultFlags.includes(key)
+
+    if (await variation('show-table-row',ldUser, isDefaultFlag)) {
+        flagKeys.push(key)
+      }
+  }
+  return flagKeys
+}
+
+function demoService(name="app",custom={}) {
+  return serviceContext(name, Object.assign({}, custom, {"Demo": demos}, demoConfig))
+}
+function demoContext(custom) {
+  return demoService("app", custom)
+}
+
 async function render() {
   const config = example.getConfig()
+  const logger = example.serviceLogger('render')
   
-  const cuser = (custom) => Object.assign({'key': `service/${pkg.name}`, "anonymous": true},{custom: Object.assign({'Demo': demos}, demoConfig, custom)})
-  const dconfig = (key, context, fallback) => {
-    const user =  cuser(context)
-    return ld.variationDetail(key, user, fallback).then(detail => {
-      logger.debug('dynamic config for ', {key, user, detail, fallback})
-      return detail.value
-    })
-  }
+  
+
   const users = await refreshUsers()
-  const flagKeys = (
-    await Promise.all(Array.from(allFlagKeys).map(async (k) => {
-    return [k,
-            await dconfig('show-table-row', {
-              'Flag Key': k
-          }, k.startsWith('release-widget'))
-        ]
-  })))
-    .filter(([k,v]) => v)
-    .map(([k]) => k)
+   
+  const flagKeys = await getFlagKeysForTable()
  
-          
+ 
+  const tableLogger = example.serviceLogger('table')
   const table = [['Flag'].concat(exampleUsers.map((user => user.name)))]
+  for (const flagKey of flagKeys) {
+    const row = [`{bold}${flagKey}{/bold}`]
+    for await (const user of exampleUsers) {
+      const detail = variationDetail(flagKey, userContext(user))
+
+    }
+  }
+
   const rows = (await Promise.all(
     flagKeys.map(key => 
       Promise.all(
-        [key].concat(
+        [`{bold}${key}{/bold}`].concat(
           exampleUsers.map(async (user) => {
-            
-            const detail = await ld.variationDetail(key, user)
+            user = userContext(user)
+            const detail = await variationDetail(key, user)
             
             logger.debug('table: evaluated flag', {
               [LD_USER]: user,
@@ -190,18 +220,38 @@ async function render() {
                flag: key,
                ...detail
               })
-            
-            return detail.value
+              const type = typeof detail.value
+              const context = {
+                'Flag Key': key,
+                'Flag Value': detail.value,
+                'Flag Type': type == 'object' ? 'json' : type,
+                'Evaluation Reason': detail.reason,
+                "Demo: User Key": user.key
+              };
+              const str = JSON.stringify(detail.value)
+            const color = await variation('config-table-cell-color', mergeLDUser(user, demoContext(context)), detail.value ? 'green' : 'blue')
+            logger.debug('table display: ', {
+              [LD_USER]: user,
+              str,
+              color,
+              key: user.key,
+              name: user.name
+            })
+            return `{${color}-fg}${str}{/}`
           })
       ))
       )))
     .map(
-      ([first, ...rest]) => [first, ...rest.map(v => JSON.stringify(v))]
+      ([first, ...rest]) => [first, ...rest.map(
+        v => 
+          v
+        )
+      ]
     )
   
   table.push(...rows)
  
-  if (await dconfig('show-table-row', {'Calculated Row': 'Available EAPs'}, false)) {
+  if (await variation('show-table-row', demoContext({'Calculated Row': 'Available EAPs'}), false)) {
     const eaps = await Promise.all(exampleUsers.map(user => example.getAvailableEarlyAccessPrograms(user)))
     table.push(['available eaps'].concat(eaps.map(v => v.join(','))))
   }
@@ -209,24 +259,27 @@ async function render() {
 
   
   screen.render()
-  const rolloutFlag = await dconfig('config-rollout-flag', {}, 'release-widget')
-  rolloutBox.setLabel(`[ Rollout: ${rolloutFlag} ]`)
+  const rolloutFlag = await variation('config-rollout-flag', demoContext(), 'release-widget')
+  rolloutBox.setLabel(`${"\033"}[1m${rolloutFlag}${"\033"}[0m`)
   const evals = await Promise.all(users.map(async (user) => {
-    const detail = await ld.variationDetail(rolloutFlag, user)
+    const detail = await variationDetail(rolloutFlag, userContext(user))
     logger.debug('rollout: evaluated flag: ', {
       name: user.name,
       key: user.key,
       flag: rolloutFlag,
-      [LD_USER]: user, ...detail}
+      [LD_USER]: mergeLDUser(demoContext(), userContext(user)), ...detail
+    }
     )
     return [user, detail.value]
   }))
   const renderedCells = await Promise.all(evals.map(async ([user, result]) => {
     const type = typeof result
+    user = userContext(user)
     const context = {
       'Flag Key': rolloutFlag,
       'Flag Value': result,
       'Flag Type': type == 'object' ? 'json' : type,
+      "Demo: User Key": user.key
     };
 
     const colorKey = 'config-table-cell-color'
@@ -234,13 +287,13 @@ async function render() {
     
     const symbolKey = 'config-table-cell-symbol'
 
-    const {[colorKey]: color, [symbolKey]: symbol} = await variationMap(cuser(context), {
+    const {[colorKey]: color, [symbolKey]: symbol} = await variationMap(mergeLDUser(user, demoContext(context)), {
       [colorKey]: !!result ? 'green' : 'blue',
       [symbolKey]: '█'
     })
 
 
-    return `{${color}-fg}${symbol}{/}`
+    return `{bold}{${color}-fg}${symbol}{/}{/bold}`
   }))
   
   rolloutDisplay.setContent(renderedCells.join(''))
@@ -258,7 +311,7 @@ screen.key(['escape', 'q', 'C-c'], async function(ch, key) {
 });
 
 async function refreshDemoConfig() {
-  
+    const logger = example.serviceLogger('config')
     try {
       const data = JSON.parse(await readFile('./demo.json', {encoding: 'utf8' }))
       demoConfig = data
@@ -283,11 +336,12 @@ async function main() {
   const userWatcher = createWatcher('users.json')
   const configWatcher = createWatcher('demo.json')
   userWatcher.on('change', () => {
+    example.serviceLogger('config').debug('user json change detected')
     logger.debug('user json change detected')
     render()
   })
   configWatcher.on('change',() => {
-    logger.debug('demo config change detected')
+    example.serviceLogger('config').debug('demo json change detected')
     refreshDemoConfig()
   })
 
