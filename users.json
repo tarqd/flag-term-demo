@@ -1,28 +1,53 @@
 [
    {
-      "key": "1",
-      "name": "Alice Demo",
-      "custom": {
-         "Groups": ["development", "staff"],
-         "Session": "1FB9FF39-C101-46C9-AFF3-DBA19671BC39"
+      "key":"1",
+      "name":"Alice Demo",
+      "custom":{
+         "Groups":[
+            "development",
+            "staff",
+            "frontend-team"
+         ],
+         
+         "Session":"1FB9FF39-C101-46C9-AFF3-DBA19671BC39"
+      },
+      "avatar":"https://www.gravatar.com/avatar/f6d09e49a851307c3c9236b0240fc6ea?d=robohash&f=y"
+   },
+   {
+      "key":"2",
+      "name":"Bob Demo",
+      "custom":{
+         "Groups": ["staff", "development", "backend-team"],
+         "Session":"D1F93504-2C67-4269-9157-909D0E7FD3F1",
+         "EAP Opt-Ins":[
+            "widget",
+            "bill-pay-dashboard"
+         ]
+      },
+      "avatar":"https://www.gravatar.com/avatar/f6d09e49a851307c7c9236b0240fc6ea?d=robohash&f=y"
+   },
+   {
+      "key":"D1F93504-2C67-4269-9157-909D0E7FD3F1",
+      "name":"<preauth: carol>",
+      "anonymous": true,
+      "custom":{
+         "Browser":"Firefox",
+         "Browser: Version":"40.4.2",
+         "Session":"D1F93504-2C67-4269-9157-909D0E7FD3F1"
       }
    },
-{
-  "key": "2",
-   "name": "Bob Demo",
-   "custom": {
-     "Session": "D1F93504-2C67-4269-9157-909D0E7FD3F1",
-     "EAP Opt-ins": ["widget"]
+   {
+      "key":"123",
+      "name":"Carol Demo",
+      "custom":{
+         "Groups":[ 
+            "staff", "customer-support"
+         ],
+         "EAP Opt-Ins": ["widget"],
+         "Browser":"Firefox",
+         "Browser: Version":"40.4.2",
+         "Session":"D1F93504-2C67-4269-9157-909D0E7FD3F1"
+      },
+      "avatar":"https://www.gravatar.com/avatar/f6d09e49a851307c3c9235b0240fc6ea?d=robohash&f=y"
    }
-},
-{
-  "key": "123",
-   "name": "Carol Demo",
-   "custom": {
-     "Groups": ["customer-support", "staff","demo"],
-     "Browser": "firefox",
-     
-     "Browser Version": "40.4.2",
-     "Session": "D1F93504-2C67-4269-9157-909D0E7FD3F1"
-  }
-}]
+]
