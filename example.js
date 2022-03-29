@@ -55,8 +55,9 @@ function getLDClient() {
  * @param {string} flag
  * @returns {[string, any][]}
  */
-async function variation(flag, user={}, fallback) {
+async function variation(flag, user, fallback) {
   const ld = getLDClient();
+  
   return ld.variation(flag, withServiceAttributes(user), fallback);
 }
 
