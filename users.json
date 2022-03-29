@@ -5,7 +5,8 @@
       "custom":{
          "Groups":[
             "development",
-            "staff"
+            "staff",
+            "frontend-team"
          ],
          
          "Session":"1FB9FF39-C101-46C9-AFF3-DBA19671BC39"
@@ -16,7 +17,7 @@
       "key":"2",
       "name":"Bob Demo",
       "custom":{
-         "Groups": ["staff", "customer-support"],
+         "Groups": ["staff", "development", "backend-team"],
          "Session":"D1F93504-2C67-4269-9157-909D0E7FD3F1",
          "EAP Opt-Ins":[
             "widget",
@@ -40,6 +41,7 @@
       "name":"Carol Demo",
       "custom":{
          "Groups":[ 
+            "staff", "customer-support"
          ],
          "EAP Opt-Ins": ["widget"],
          "Browser":"Firefox",
