@@ -17,8 +17,10 @@
       "key":"2",
       "name":"Bob Demo",
       "custom":{
-         "Groups": ["staff", "development", "backend-team"],
+         "Groups": ["customer"],
          "Session":"D1F93504-2C67-4269-9157-909D0E7FD3F1",
+         "Browser":"Firefox",
+         "Browser: Version":"40.4.2",
          "EAP Opt-Ins":[
             "widget",
             "bill-pay-dashboard"
@@ -41,9 +43,9 @@
       "name":"Carol Demo",
       "custom":{
          "Groups":[ 
-            "staff", "customer-support"
+            "customer"
          ],
-         "EAP Opt-Ins": ["widget"],
+         "EAP Opt-ins": ["widget"],
          "Browser":"Firefox",
          "Browser: Version":"40.4.2",
          "Session":"D1F93504-2C67-4269-9157-909D0E7FD3F1"

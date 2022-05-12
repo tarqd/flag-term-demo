@@ -30,6 +30,7 @@ const GLOBAL_PREFIX = "global-";
 function initializeLaunchDarklyClient() {
   return LaunchDarkly.init(process.env.LD_SDK_KEY, {
     capacity: 10000,
+    flushInterval: 1,
     logger: serviceLogger("launchdarkly-sdk"),
     privateAttributeNames: ["Date of Birth", "Session"],
   });
@@ -57,7 +58,6 @@ function getLDClient() {
  */
 async function variation(flag, user, fallback) {
   const ld = getLDClient();
-  
   return ld.variation(flag, withServiceAttributes(user), fallback);
 }
 
