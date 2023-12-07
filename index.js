@@ -10,12 +10,15 @@ const pkg = require('./package.json')
 const { DEMO } = process.env
 const GRID_COLS = 24
 const GRID_ROWS = 80
-const USER_COUNT = GRID_COLS * GRID_ROWS
+let USER_COUNT = GRID_COLS * GRID_ROWS
 const {logger, LD_USER} = require('./logger')
-const {withLDUser} = require('./logger-transport')
+const {withLDContext} = require('./logger-transport')
 const { variation, variationDetail, variationMap} = example
 const {getUser} = require('./user-generator')
-const {mergeLDUser, sessionContext, userContext, serviceContext} = require('./ld-user')
+const {mergeLDContext, getContextKind, sessionContext, userContext, serviceContext, withSession} = require('./ld-context')
+const { merge } = require('blessed/lib/helpers')
+const { Writable } = require('node:stream');
+const winston = require('winston')
 
 
 // make the "random" users repeatable 
@@ -23,10 +26,7 @@ faker.seed(0x2BBA76D0)
 const demos = DEMO && DEMO.split(',').map(v => v.trim()) || null
 
 
-let exampleUsers = [{
-  "key": uuid(),
-  "name": "foo"
-}]
+let exampleContexts = [userContext({name: "Example User", anonymous: true})]
 
 
 
@@ -46,32 +46,31 @@ function generateUsers() {
   return users
 }
 
-const randomUsers = generateUsers()
+let randomUsers = generateUsers()
 let didEAPs = false;
 
 async function refreshUsers() {
-  
   try {
     const data = await readFile('./users.json', {encoding: 'utf8' })
-    exampleUsers = JSON.parse(data)
+    exampleContexts = JSON.parse(data);
   } catch (e) {
     logger.error('failed to parse users.json')
   }
-  const randos = randomUsers.slice(0, randomUsers.length - exampleUsers.length);
-  const key = 'EAP Opt-ins'
+  const randos = randomUsers.slice(0, randomUsers.length - exampleContexts.length);
+  const key = 'eap-optin'
   if (!didEAPs) {
-    for (const value of randos) {
-      if (value.anonymous !== true && (value && value.custom && value.custom[key] == undefined)) { 
-        const eaps = await example.getAvailableEarlyAccessPrograms(value)
-        if (eaps.length > 0 && faker.datatype.number({min: 0, max: 100}) < 20) {
-          didEAPs = true
-          value.custom[key] = Array.from(eaps)
-        }
-      }
+    for (const context of randos) {
+      const value = getContextKind('user', context)
+      if (!value) continue;
+      const eaps = await example.getAvailableEarlyAccessPrograms(context)
+      if (eaps.length > 0 && faker.datatype.number({min: 0, max: 100}) < 20) {
+        didEAPs = true
+        value[key] = Array.from(eaps)
+      } 
     }
   }
 
-  return exampleUsers.concat(randos)
+  return exampleContexts.concat(randos)
 }
 
 const screen = blessed.screen({
@@ -84,7 +83,7 @@ const userBox = blessed.box({
   width: '100%',
   top: 0,
   left: 0,
-
+  
   label: {
     text: "Example Users",
     side: 'left'
@@ -107,27 +106,40 @@ const userTable = blessed.table({
   }
 });
 const loggerBox = blessed.box({
-  border: {
-    type: 'line'
-  },
+  border: 'line',
   height: '50%',
   width: '50%',
-  top: 0,
+  align: 'right',
   right: 0,
   label: {
     text: "Log",
     side: 'left'
   },
 })
-const loggerWindow = blessed.log({height: 4,
-  parent: loggerBox,
-  position: {
-}})
+const loggerWindow = blessed.log({
+
+  tags: true,
+  keys: true,
+  vi: true,
+  mouse: true,
+  scrollback: 100,
+  scrollbar: {
+    ch: ' ',
+    track: {
+      bg: 'yellow'
+    },
+    style: {
+      inverse: true
+    }
+  }
+});
+loggerBox.append(loggerWindow);
 const rolloutBox = blessed.box({
   top: '50%',
   height: '50%',
   width: '100%',
   border: 'line',
+
   label: "Rollout: release-widget",
   sendFocus: true,
   scrollable: true
@@ -138,11 +150,18 @@ const rolloutDisplay = blessed.text({
   tags: true,
 })
 rolloutDisplay.enableMouse()
-//screen.append(loggerBox)
 screen.append(userBox)
+//screen.append(loggerBox)
+
 screen.append(rolloutBox)
 screen.enableMouse()
 rolloutBox.focus()
+
+screen.on('resize', () => { 
+  if (rolloutBox.height * rolloutBox.width != USER_COUNT) {
+    render()
+  }
+})
 
 const noop = (info, callback) => { 
   //logger.log(info)
@@ -158,78 +177,90 @@ const ld = example.getLDClient()
 const allFlagKeys = new Set()
 
 let demoConfig = {};
+const demoKey = uuid()
+
 
 
 async function getFlagKeysForTable() {
   const defaultFlags = ['release-widget', 'release-widget-api', 'release-widget-backend'];
   const flagKeys = []
   for (const key of allFlagKeys) {
-    const ldUser = demoService("table",{
-      "Flag Key": key
+
+    const ldContext = demoContext({
+      kind: 'flag',
+      key: key,
     })
 
     const isDefaultFlag = defaultFlags.includes(key)
 
-    if (await variation('show-table-row',ldUser, isDefaultFlag)) {
+    if (await variation('show-table-row',ldContext, isDefaultFlag)) {
         flagKeys.push(key)
       }
   }
   return flagKeys
 }
 
-function demoService(name="app",custom={}) {
-  return serviceContext(name, Object.assign({}, custom, {"Demo": demos}, demoConfig))
+function demoContext(...contexts) {
+  return mergeLDContext({
+    kind: 'demo',
+    key: demoKey,
+    anonymous: !!demoConfig.name,
+    ...demoConfig
+  }, ...contexts)
 }
-function demoContext(custom) {
-  return demoService("app", custom)
-}
+
+
 
 async function render() {
   const config = example.getConfig()
   const logger = example.serviceLogger('render')
   
-  
+
 
   const users = await refreshUsers()
+  USER_COUNT = rolloutBox.height * rolloutBox.width
+  
+  
+  
+  while (randomUsers.length < USER_COUNT) {
+    randomUsers.push(getUser())
+  }
    
   const flagKeys = await getFlagKeysForTable()
  
  
-  const tableLogger = example.serviceLogger('table')
-  const table = [['Flag'].concat(exampleUsers.map((user => user.name)))]
-  for (const flagKey of flagKeys) {
-    const row = [`{bold}${flagKey}{/bold}`]
-    for await (const user of exampleUsers) {
-      const detail = variationDetail(flagKey, userContext(user))
-
-    }
-  }
+  const tableLogger = example.serviceLogger('render:table')
+  const exampleUsers = exampleContexts.map(v => getContextKind('user', v)).filter(Boolean);
+  
+  const table = [['Flag'].concat(exampleUsers.map(v => v.name))]
 
   const rows = (await Promise.all(
     flagKeys.map(key => 
       Promise.all(
         [`{bold}${key}{/bold}`].concat(
           exampleUsers.map(async (user) => {
-            user = userContext(user)
+            user = demoContext(user)
             const detail = await variationDetail(key, user)
             
-            logger.debug('table: evaluated flag', {
-              [LD_USER]: user,
+            logger.debug('table: evaluated flag', withLDContext({
                name: user.name,
                key: user.key,
                flag: key,
                ...detail
-              })
-              const type = typeof detail.value
+              }, user));
+              
               const context = {
-                'Flag Key': key,
-                'Flag Value': detail.value,
-                'Flag Type': type == 'object' ? 'json' : type,
-                'Evaluation Reason': detail.reason,
-                "Demo: User Key": user.key
-              };
+                kind: 'flag',
+                key: key,
+                value: detail.value,
+                type: typeof detail.value,
+                reason: detail.reason,
+              }
+              
+
               const str = JSON.stringify(detail.value)
-            const color = await variation('config-table-cell-color', mergeLDUser(user, demoContext(context)), detail.value ? 'green' : 'blue')
+              
+            const color = await variation('config-table-cell-color', demoContext(context, user), detail.value ? 'green' : 'blue')
             logger.debug('table display: ', {
               [LD_USER]: user,
               str,
@@ -250,44 +281,47 @@ async function render() {
     )
   
   table.push(...rows)
- 
-  if (await variation('show-table-row', demoContext({'Calculated Row': 'Available EAPs'}), false)) {
+  const rowContext = demoContext({
+    kind: 'calculated-row',
+    name: 'Available EAPs',
+    key: 'available-eaps',    
+  });
+  if (await variation('show-table-row',rowContext, false)) {
     const eaps = await Promise.all(exampleUsers.map(user => example.getAvailableEarlyAccessPrograms(user)))
     table.push(['available eaps'].concat(eaps.map(v => v.join(','))))
   }
   userTable.setData(table)
 
   
-  screen.render()
+  //screen.render()
   const rolloutFlag = await variation('config-rollout-flag', demoContext(), 'release-widget')
   rolloutBox.setLabel(`${"\033"}[1m${rolloutFlag}${"\033"}[0m`)
   const evals = await Promise.all(users.map(async (user) => {
-    const detail = await variationDetail(rolloutFlag, userContext(user))
-    logger.debug('rollout: evaluated flag: ', {
+    const context = demoContext(user)
+    const detail = await variationDetail(rolloutFlag, context);
+    logger.debug('wtf', context, detail)
+    logger.debug('rollout: evaluated flag: ', withLDContext({
       name: user.name,
       key: user.key,
       flag: rolloutFlag,
-      [LD_USER]: mergeLDUser(demoContext(), userContext(user)), ...detail
-    }
-    )
+    }, context))
     return [user, detail.value]
   }))
   const renderedCells = await Promise.all(evals.map(async ([user, result]) => {
     const type = typeof result
-    user = userContext(user)
-    const context = {
-      'Flag Key': rolloutFlag,
-      'Flag Value': result,
-      'Flag Type': type == 'object' ? 'json' : type,
-      "Demo: User Key": user.key
-    };
+    const context = demoContext({
+      kind: 'flag',
+      'key': rolloutFlag,
+      'value': result,
+      'type': type == 'object' ? 'json' : type,
+    }, user);
 
     const colorKey = 'config-table-cell-color'
     
     
     const symbolKey = 'config-table-cell-symbol'
 
-    const {[colorKey]: color, [symbolKey]: symbol} = await variationMap(mergeLDUser(user, demoContext(context)), {
+    const {[colorKey]: color, [symbolKey]: symbol} = await variationMap(context, {
       [colorKey]: !!result ? 'green' : 'blue',
       [symbolKey]: '█'
     })
@@ -297,7 +331,6 @@ async function render() {
   }))
   
   rolloutDisplay.setContent(renderedCells.join(''))
-  rolloutDisplay.render()
   screen.render()
 
   
@@ -323,8 +356,19 @@ async function refreshDemoConfig() {
   
 }
 
-async function main() {
 
+async function main() {
+  const blessedLogStream = new Writable({
+    objectMode: false,
+    write(chunk, encoding, callback) {
+      //loggerWindow.log(chunk.toString().trim())
+      callback()
+    }
+  })
+  const transport = new winston.transports.Stream({
+    stream: blessedLogStream,
+  });
+  logger.pipe(transport)
 
   ld.on('update', ({key}) => {
     // keep track of our flag keys

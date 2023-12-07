@@ -1,20 +1,16 @@
-const EventEmitter = require("events");
-const os = require("os");
 
 
-const LaunchDarkly = require("launchdarkly-node-server-sdk");
+const LaunchDarkly = require("@launchdarkly/node-server-sdk");
 
-const pkg = require("./package.json");
 const {
   logger,
-  levels,
   setLoggerLDClient,
   getDefaultLogLevel,
   setDefaultLogLevel,
 } = require("./logger");
 
-const { withLDUser } = require("./logger-transport");
-const { mergeLDUser , serviceContext, userContext, sessionContext, withServiceAttributes } = require("./ld-user");
+const { withLDContext } = require("./logger-transport");
+const { withService } = require("./ld-context");
 let ldClient = null;
 
 const EAP_PREFIX = "allow-eap-";
@@ -52,25 +48,25 @@ function getLDClient() {
 
 /**
  * Wrapper around variation calls
- * @param {LaunchDarkly.LDUser} user
+ * @param {LaunchDarkly.LDContext} context
  * @param {string} flag
  * @returns {[string, any][]}
  */
-async function variation(flag, user, fallback) {
+async function variation(flag, context={}, fallback) {
   const ld = getLDClient();
-  return ld.variation(flag, withServiceAttributes(user), fallback);
+  return ld.variation(flag, withService('app', context), fallback);
 }
 
 
 /**
  * Wrapper around variationDetail calls
- * @param {LaunchDarkly.LDUser} user
+ * @param {LaunchDarkly.LDContext} context
  * @param {string} flag
  * @returns {[string, any][]}
  */
- async function variationDetail(flag, user={}, fallback) {
+ async function variationDetail(flag, context={}, fallback) {
     const ld = getLDClient();
-    return ld.variationDetail(flag, withServiceAttributes(user), fallback);
+    return ld.variationDetail(flag, withService('app', context), fallback);
   }
 
 /**
@@ -98,14 +94,12 @@ async function variationMap(user, flagsAndFallbacks) {
 /**
  *  Create a service logger
  *  @param {string} component
- *  @param {object...} custom custom attributes to be merged into the resulting user object
+ *  @param {LaunchDarkly.LDContext...} contexts additional contexts to add to the logger
  */
-function serviceLogger(component, custom) {
-  return logger.child(
-    withLDUser(
-        serviceContext(component, custom)
-    )
-  );
+function serviceLogger(component, contexts) {
+  return logger.child(withLDContext(function() {
+    return withService(component, ...contexts);
+  }))
 }
 
 
@@ -200,9 +194,6 @@ function getConfig() {
   return appConfig;
 }
 
-function getServiceAttributes() {
-
-}
 module.exports = {
   getConfig,
   initializeLaunchDarklyClient,

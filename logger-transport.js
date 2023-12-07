@@ -1,35 +1,34 @@
 const { Transform } = require('stream');
 const WinstonTransport = require('winston-transport');
 const { LEVEL } = require('triple-beam');
-const LD_USER = Symbol('LaunchDarkly.User')
-
+const LD_CONTEXT = Symbol('LaunchDarkly.Context')
+const {mergeLDContext} = require('./ld-context')
 /**
- * Returns a copy of the base object 
- * If no LD_USER property exists, the default will be assigned to it
- * @param {LaunchDarkly.LDUser} LDUser
- * @param {object...} objects
+ * Returns a copy of the base object with an LD_CONTEXT set
+ * @param {object} target
+ * @param {LaunchDarkly.LDContext...} contexts
  * @returns {object} object with LD User property set
  */
-function withLDUser(defaultUser, ...args) {
-    return Object.assign({[LD_USER]: defaultUser}, ...args)
+function withLDContext(target, ...contexts) {
+    return Object.assign({}, target, {[LD_CONTEXT]: mergeLDContext(...contexts)})
 }
 
 /**
- * Sets the LD_USER property of the given object
- * @param {object} base 
- * @param {LaunchDarkly.LDUser} LDUser
+ * Sets the LD_CONTEXT property of the given object
+ * @param {object} target 
+ * @param {LaunchDarkly.LDContext} context
  * @returns {object} object with LD User property
  */
-function setLDUser(object, newUser) {
-    return Object.assign(object, {[LD_USER]: newUser})
+function setLDContext(target, context) {
+    return Object.assign(target, {[LD_CONTEXT]: context})
 }
 /**
- * Get LD_USER property
- * @param  {any}  
- * @returns {LaunchDarkly.LDUser}
+ * Get LD_CONTEXT property
+ * @param  {object} target  
+ * @returns {LaunchDarkly.LD_CONTEXT}
  */
-function getLDUser(object) {
-    return object[LD_USER]
+function getLDContext(target) {
+    return target[LD_CONTEXT]
 }
 
 
@@ -40,7 +39,7 @@ class LaunchDarklyTransportFilter extends Transform {
     constructor({
         ldClient,
         flagKey,
-        defaultUser,
+        defaultUser: defaultContext,
         levels,
         defaultLevel,
         // used by winston core
@@ -57,13 +56,13 @@ class LaunchDarklyTransportFilter extends Transform {
             // soft-error, we will log everything if we do not know what to do
             console.error(new Error('levels property is required in order to correctly filter logs. Please pass the same levels as the destination transport'))
         }
-        defaultUser = defaultUser || {key: 'winston-logger', 'anonymous': true}
+        
         flagKey = flagKey || 'config-log-verbosity'
 
         Object.assign(this, {
             ldClient,
             flagKey,
-            defaultUser,
+            defaultContext,
             levels,
             defaultLevel,
             handleExceptions,
@@ -73,13 +72,20 @@ class LaunchDarklyTransportFilter extends Transform {
     setLDClient(ldClient) {
         this.ldClient = ldClient
     }
+    getDefaultContext() {
+        if (typeof this.defaultContext === 'function') {
+            return this.defaultContext()
+        } else {
+            return this.defaultContext
+        
+        }
+    }
     async _process(entry, encoding) {
         const {
             ldClient,
             flagKey,
             defaultLevel,
             levels,
-            defaultUser
         } = this
         
         if (entry === undefined || entry === null || !levels) {
@@ -87,7 +93,8 @@ class LaunchDarklyTransportFilter extends Transform {
             return;
         }
         
-        const user = entry[LD_USER] || defaultUser
+        const user = entry[LD_CONTEXT] || this.getDefaultContext()
+        
         const shouldUseLD = ldClient && ldClient.initialized()
         const level = shouldUseLD ? await ldClient.variation(flagKey, user, defaultLevel) : defaultLevel
         const currentLogLevel = levels[level]
@@ -106,7 +113,8 @@ class LaunchDarklyTransportFilter extends Transform {
 
 module.exports = {
     LaunchDarklyTransportFilter,
-    withLDUser,
-    setLDUser,
-    LD_USER
+    withLDContext,
+    setLDContext,
+    getLDContext,
+    LD_CONTEXT
 }

@@ -1,7 +1,7 @@
 const { Transform, pipeline } = require("stream");
 const Transport = require("winston-transport");
 const winston = require("winston");
-const { LaunchDarklyTransportFilter, LD_USER } = require("./logger-transport");
+const { LaunchDarklyTransportFilter, LD_CONTEXT } = require("./logger-transport");
 
 const levels = {
   user: -1,
@@ -22,7 +22,7 @@ const file = new winston.transports.File({
 
 const ldTransport = new LaunchDarklyTransportFilter({
   levels,
-  defaultLevel: "warn",
+  defaultLevel: "debug",
   flagKey: "config-log-verbosity",
 });
 
@@ -50,4 +50,4 @@ module.exports.setDefaultLogLevel = (level) =>
   (ldTransport.defaultLevel = level);
 module.exports.getDefaultLogLevel = () => ldTransport.defaultLevel;
 module.exports.setLoggerLDClient = (c) => ldTransport.setLDClient(c);
-module.exports.LD_USER = LD_USER;
+module.exports.LD_CONTEXT = LD_CONTEXT;
