@@ -42,7 +42,7 @@ function getMobile() {
     const app = 'example-mobile-app'
     const isAndroid = faker.datatype.number({min: 1, max: 100}) < 30
     const application = {
-        
+        kind: 'ld_application',
         key: createHash('sha256', app).update(app).digest('hex'),
         name: `Example ${isAndroid ? 'Android' : 'iOS'} App`,
         id: app,
@@ -50,13 +50,13 @@ function getMobile() {
         version: faker.random.arrayElement(versions),        
     }
     const device = isAndroid ? {
-        
+        kind: 'ld_device',
         manufacturer: 'Samsung',
         model: 'Galaxy S10',
         envAttributesVersion: '1.0.0',
         key: uuid(),
     } : {
-        
+        kind: 'ld_device',
         manufacturer: 'Apple',
         model: 'iPhone 12',
         envAttributesVersion: '1.0.0',

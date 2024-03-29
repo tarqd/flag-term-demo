@@ -29,6 +29,12 @@ function initializeLaunchDarklyClient() {
     flushInterval: 1,
     logger: serviceLogger("launchdarkly-sdk"),
     privateAttributeNames: ["Date of Birth", "Session"],
+    application: {
+      id: "example-app",
+      name: "Example App",
+      key: "example-app",
+      version: "1.0.0",
+    }
   });
 }
 
@@ -145,7 +151,11 @@ const appConfig = new Map();
 async function handleConfiguration(flag) {
   const ld = getLDClient();
   const key = stripPrefix(CONFIGURE_PREFIX, flag);
-  const user = serviceContext("config");
+  const user = {
+    kind: 'service',
+    key: "app-config",
+    anonymous: true,
+  }
   const logger = serviceLogger("config");
 
   switch (key) {

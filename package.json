@@ -9,7 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@launchdarkly/node-server-sdk": "^9.0.3",
+    "@launchdarkly/node-server-sdk": "^9.0.6",
     "blessed": "^0.1.81",
     "blessed-contrib": "^4.8.21",
     "chalk": "^1.1.3",

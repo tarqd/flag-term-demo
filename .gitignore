@@ -1,2 +1,10 @@
 node_modules/
 .env*.log
+*.tfvars
+*.tfstate
+*.tfstate.backup
+*.swp
+*.log
+open-env.sh
+mobile-event.json
+trigger.sh

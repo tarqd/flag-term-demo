@@ -4,12 +4,23 @@
     "user": {
       "key": "1",
       "name": "Alice Demo",
+      "country": "",
+      "groups": ["development", "staff", "frontend-team"],
+      "avatar": "https://www.gravatar.com/avatar/f6d09e49a851307c3c9236b0240fc6ea?d=robohash&f=y"
+    },
+    "owner": {
+      "key": "1",
+      "name": "Alice Demo",
       "groups": ["development", "staff", "frontend-team"],
       "avatar": "https://www.gravatar.com/avatar/f6d09e49a851307c3c9236b0240fc6ea?d=robohash&f=y"
     },
     "session": {
       "key": "F7E86BF7-F6E6-4762-920D-7A714E454F3C",
       "anonymous": true
+    },
+    "device": {
+      "key": "5cebb585-47d2-443e-9097-62da16c18cd8",
+      "name": "Alice's Dev Box"
     }
   },
   {
@@ -18,23 +29,11 @@
       "key": "2",
       "name": "Bob Demo",
       "groups": ["customer"],
-      "eap-optin": ["widget", "bill-pay-dashboard"],
+      "eap-optin": ["widget", "staff", "bill-pay-dashboard"],
       "avatar": "https://www.gravatar.com/avatar/f6d09e49a851307c7c9236b0240fc6ea?d=robohash&f=y"
     },
     "session": {
       "key": "D1F93504-2C67-4269-9157-909D0E7FD3F1",
-      "anonymous": true
-    }
-  },
-  {
-    "kind": "multi",
-    "user": {
-      "key": "D1F93504-2C67-4269-9157-909D0E7FD3F1",
-      "name": "<preauth: carol>",
-      "anonymous": true
-    },
-    "session": {
-      "key": "442A8235-4CC3-4912-B145-A2D980CB7C17",
       "anonymous": true
     }
   },

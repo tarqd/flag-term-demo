@@ -140,7 +140,7 @@ const rolloutBox = blessed.box({
   width: '100%',
   border: 'line',
 
-  label: "Rollout: release-widget",
+  label: "Rollout",
   sendFocus: true,
   scrollable: true
   
@@ -231,7 +231,7 @@ async function render() {
  
   const tableLogger = example.serviceLogger('render:table')
   const exampleUsers = exampleContexts.map(v => getContextKind('user', v)).filter(Boolean);
-  
+    
   const table = [['Flag'].concat(exampleUsers.map(v => v.name))]
 
   const rows = (await Promise.all(
