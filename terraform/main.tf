@@ -37,7 +37,7 @@ resource "launchdarkly_project" "term_demo" {
   environments {
     name = "Production"
     key = "production"
-    color = "#FF0000"
+    color = "FF0000"
     require_comments = true
     confirm_changes = true
     approval_settings {
@@ -48,7 +48,7 @@ resource "launchdarkly_project" "term_demo" {
   environments {
     name = "Test"
     key = "test"
-    color = "#00FF00"
+    color = "00FF00"
     require_comments = false
     confirm_changes = false
   }
@@ -343,33 +343,9 @@ resource "launchdarkly_feature_flag" "show_table_row" {
     off_variation = 1
   }
 }
-  
-resource "launchdarkly_feature_flag" "show_table_row" {
-    project_key = launchdarkly_project.term_demo.key
-    key = "show-table-row"
-    name = "Show: Table Row"
-    description = "Controls which table rows are displayed in the demo"
-    variation_type = "boolean"
-    tags = ["managed-by-presenter", "user-interface", "rollout-table"]
-    temporary = false
-    variations {
-            name = "Show"
-            value = true
-            description = "Row will be shown"
-        }
-    variations {
-            name = "Hide"
-            value = false
-            description = "Row will be hidden"
-        }
-    
-  defaults {
-    on_variation  = 1
-    off_variation = 1
-  }
-}
 
-resource "launchdarkly_feature_flag" "config_rollout_flag" {
+
+ resource "launchdarkly_feature_flag" "config_rollout_flag" {
     project_key = launchdarkly_project.term_demo.key
     key = "config-rollout-flag"
     name = "Config: Rollout Flag"
@@ -397,7 +373,7 @@ resource "launchdarkly_feature_flag" "config_rollout_flag" {
 }
 
 resource launchdarkly_segment "release_flags" {
-  for_each = launchdarkly_project.term_demo.environments[*].key
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
   project_key = launchdarkly_project.term_demo.key
   env_key = each.value
   key = "release-flags"
@@ -417,7 +393,7 @@ resource launchdarkly_segment "release_flags" {
 }
 
 resource launchdarkly_segment "widget_flags" {
-  for_each = launchdarkly_project.term_demo.environments[*].key
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
   project_key = launchdarkly_project.term_demo.key
   env_key = each.value
   key = "widget-flags"
@@ -446,7 +422,7 @@ resource launchdarkly_segment "widget_flags" {
 }
 
 resource launchdarkly_segment "eap_widget" {
-  for_each = launchdarkly_project.term_demo.environments[*].key
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
   project_key = launchdarkly_project.term_demo.key
   env_key = each.value
   key = "eap-widget"
@@ -457,7 +433,7 @@ resource launchdarkly_segment "eap_widget" {
  rules {
     clauses {
       attribute    = "eap-optin"
-      op           = "is"
+      op           = "in"
       values       = ["widget"]
       negate       = false
       context_kind = "user"
@@ -466,7 +442,7 @@ resource launchdarkly_segment "eap_widget" {
 }
 
 resource launchdarkly_segment "supported_browsers" {
-  for_each = launchdarkly_project.term_demo.environments[*].key
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
   project_key = launchdarkly_project.term_demo.key
   env_key = each.value
   key = "supported-browsers"
@@ -484,10 +460,11 @@ resource launchdarkly_segment "supported_browsers" {
     }
     clauses {
       attribute = "version"
-      op = "semVerGreaterThanOrEqual"
+      op = "semVerGreaterThan"
       values = ["84.0.0"]
     }
   }
+
  rules {
     clauses {
       attribute    = "id"
@@ -498,33 +475,19 @@ resource launchdarkly_segment "supported_browsers" {
     }
     clauses {
       attribute = "version"
-      op = "semVerGreaterThanOrEqual"
+      op = "semVerGreaterThan"
       values = ["89.0.0"]
     }
   }
-   rules {
-    clauses {
-      attribute    = "id"
-      op           = "in"
-      values       = ["firefox"]
-      negate       = false
-      context_kind = "browser"
-    }
-    clauses {
-      attribute = "version"
-      op = "semVerGreaterThanOrEqual"
-      values = ["89.0.0"]
-    }
-  }
+
 }
 
-resource launchdarkly_flag_environment "release_widget_backend" {
-  for_each = launchdarkly_project.term_demo.environments[*].key
-  project_key = launchdarkly_project.term_demo.key
-  flag_key = launchdarkly_feature_flag.release_widget_backend.key
+resource launchdarkly_feature_flag_environment "release_widget_backend" {
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
+  flag_id = launchdarkly_feature_flag.release_widget_backend.id
   env_key = each.value
   prerequisites {
-    flag_key = launchdarkly_feature_flag.release_widget_backend.key
+    flag_key = launchdarkly_feature_flag.db_create_table_widget.key
     variation = 0
   }
   on = each.value != "production"
@@ -534,16 +497,25 @@ resource launchdarkly_flag_environment "release_widget_backend" {
   }
 }
 
-resource launchdarkly_flag_environment "release_widget" {
-  for_each = launchdarkly_project.term_demo.environments[*].key
-  project_key = launchdarkly_project.term_demo.key
-  flag_key = launchdarkly_feature_flag.release_widget.key
+resource launchdarkly_feature_flag_environment "release_widget" {
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
+  flag_id = launchdarkly_feature_flag.release_widget.id
   env_key = each.value
   prerequisites {
     flag_key = launchdarkly_feature_flag.release_widget_backend.key
     variation = 0
   }
   on = true
+  rules { 
+    description = "Internal release"
+    clauses {
+      context_kind = "user"
+      attribute = "groups"
+      op = "in"
+      values = ["staff"]
+    }
+    variation = 0
+  }
   rules {
     description = "Supported browsers only"
     clauses {
@@ -554,26 +526,16 @@ resource launchdarkly_flag_environment "release_widget" {
     }
     variation = 1
   }
-  rules { 
-    description = "Internal release"
-    clauses {
-      context_kind = "user"
-      attribute = "groups"
-      op = "oneOf"
-      values = ["staff"]
-    }
-    variation = 0
-  }
+
   off_variation = 1
   fallthrough {
     variation = 1
   }
 }
 
-resource launchdarkly_flag_environment "allow_eap_widget" {
-  for_each = launchdarkly_project.term_demo.environments[*].key
-  project_key = launchdarkly_project.term_demo.key
-  flag_key = launchdarkly_feature_flag.allow_eap_widget.key
+resource launchdarkly_feature_flag_environment "allow_eap_widget" {
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
+  flag_id = launchdarkly_feature_flag.allow_eap_widget.id
   env_key = each.value
   on = false
   off_variation = 1
@@ -582,10 +544,9 @@ resource launchdarkly_flag_environment "allow_eap_widget" {
   }
 }
 
-resource launchdarkly_flag_environment "config_table_cell_color" {
-  for_each = launchdarkly_project.term_demo.environments[*].key
-  project_key = launchdarkly_project.term_demo.key
-  flag_key = launchdarkly_feature_flag.config_table_cell_color.key
+resource launchdarkly_feature_flag_environment "config_table_cell_color" {
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
+  flag_id = launchdarkly_feature_flag.config_table_cell_color.id
   env_key = each.value
   on = true
   off_variation = 5
@@ -594,7 +555,8 @@ resource launchdarkly_flag_environment "config_table_cell_color" {
     clauses {
       context_kind = "flag"
       attribute = "value"
-      op = "is"
+      op = "in"
+      value_type = "boolean"
       values = [false]
     }
     variation = 1
@@ -603,24 +565,24 @@ resource launchdarkly_flag_environment "config_table_cell_color" {
     description = "Boolean flags / true"
     clauses {
       context_kind = "flag"
+      value_type = "boolean"
       attribute = "value"
-      op = "is"
+      op = "in"
       values = [true]
     }
     variation = 0
   }
 
   fallthrough {
-    rollout_weights = [0, 0, 20000, 20000, 20000, 20000, 20000]
+    rollout_weights = [0, 0, 25000, 25000, 25000, 25000, 0]
     context_kind    = "flag"
     bucket_by       = "value"
   }
 }
 
-resource launchdarkly_flag_environment "config_table_cell_symbol" {
-  for_each = launchdarkly_project.term_demo.environments[*].key
-  project_key = launchdarkly_project.term_demo.key
-  flag_key = launchdarkly_feature_flag.config_table_cell_symbol.key
+resource launchdarkly_feature_flag_environment "config_table_cell_symbol" {
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
+  flag_id = launchdarkly_feature_flag.config_table_cell_symbol.id
   env_key = each.value
   on = true
   off_variation = 0
@@ -629,10 +591,10 @@ resource launchdarkly_flag_environment "config_table_cell_symbol" {
   }
 }
 
-resource launchdarkly_flag_environment "db_create_table_widget" {
-  for_each = launchdarkly_project.term_demo.environments[*].key
-  project_key = launchdarkly_project.term_demo.key
-  flag_key = launchdarkly_feature_flag.db_create_table_widget.key
+resource launchdarkly_feature_flag_environment "db_create_table_widget" {
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
+  
+  flag_id = launchdarkly_feature_flag.db_create_table_widget.id
   env_key = each.value
   on = true
   off_variation = 1
@@ -641,10 +603,9 @@ resource launchdarkly_flag_environment "db_create_table_widget" {
   }
 }
 
-resource launchdarkly_flag_environment "config_log_verbosity" {
-  for_each = launchdarkly_project.term_demo.environments[*].key
-  project_key = launchdarkly_project.term_demo.key
-  flag_key = launchdarkly_feature_flag.config_log_verbosity.key
+resource launchdarkly_feature_flag_environment "config_log_verbosity" {
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
+  flag_id = launchdarkly_feature_flag.config_log_verbosity.id
   env_key = each.value
   on = true
   off_variation = 3
@@ -653,10 +614,9 @@ resource launchdarkly_flag_environment "config_log_verbosity" {
   }
 }
 
-resource launchdarkly_flag_environment "show_table_row" {
-  for_each = launchdarkly_project.term_demo.environments[*].key
-  project_key = launchdarkly_project.term_demo.key
-  flag_key = launchdarkly_feature_flag.show_table_row.key
+resource launchdarkly_feature_flag_environment "show_table_row" {
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
+  flag_id = launchdarkly_feature_flag.show_table_row.id
   env_key = each.value
   on = true
   off_variation = 1
@@ -665,11 +625,13 @@ resource launchdarkly_flag_environment "show_table_row" {
     clauses {
       context_kind = "flag"
       op = "segmentMatch"
+      attribute = "segmentMatch"
       values = [launchdarkly_segment.widget_flags[each.key].key]
     }
     clauses {
       context_kind = "flag"
       op = "segmentMatch"
+      attribute = "segmentMatch"
       values = [launchdarkly_segment.release_flags[each.key].key]
     }
     variation = 0
@@ -679,10 +641,9 @@ resource launchdarkly_flag_environment "show_table_row" {
   }
 }
 
-resource launchdarkly_flag_environment "config_rollout_flag" {
-  for_each = launchdarkly_project.term_demo.environments[*].key
-  project_key = launchdarkly_project.term_demo.key
-  flag_key = launchdarkly_feature_flag.config_rollout_flag.key
+resource launchdarkly_feature_flag_environment "config_rollout_flag" {
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
+  flag_id = launchdarkly_feature_flag.config_rollout_flag.id
   env_key = each.value
   on = true
   off_variation = 0
