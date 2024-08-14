@@ -129,7 +129,7 @@ function userContext(user = {}) {
   if (!user.key) {
     attributes.push(["key", randomUUID()]);
   }
-
+  user.kind = "user"
   if (!!user.email && !user.avatar) {
     attributes.push(["avatar", gravatarUrl(user.email)]);
   }

@@ -11,3 +11,4 @@ trigger.sh
 .terraform
 .terraform/*
 .terraform.lock.hcl
+.vscode/launch.json

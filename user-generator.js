@@ -1,10 +1,11 @@
 const { createHmac, createHash } = require("crypto");
-const faker = require("faker");
+const {faker} = require("@faker-js/faker");
 const { v4: uuid } = require("uuid");
 const {gravatarUrl, mergeLDContext, userContext, sessionContext} = require('./ld-context')
 
 
-const companies = require('./fortune1000.json')
+const companies = require('./fortune1000.json');
+const { merge } = require("blessed/lib/helpers");
 function getBrowser() {
     const browsers = ['Firefox', 'Safari', 'Internet Explorer', 'Google Chrome']
     const browserVersions = {
@@ -20,8 +21,8 @@ function getBrowser() {
         'Google Chrome': 'Google'
     }
     
-    const browser = faker.random.arrayElement(browsers)
-    const browserVersion = faker.random.arrayElement(browserVersions[browser])
+    const browser = faker.helpers.arrayElement(browsers)
+    const browserVersion = faker.helpers.arrayElement(browserVersions[browser])
     const id = {
         'Firefox': 'firefox',
         'Internet Explorer': 'ie',
@@ -32,7 +33,7 @@ function getBrowser() {
         kind: 'browser',
         vendor: vendor[browser],
         key: createHash('sha1').update(`${browser}/${browserVersion}`).digest('hex'),
-        id: id,
+        id: id[browser],
         name: `${browser} ${browserVersion}`,
         version: browserVersion,
     }
@@ -40,14 +41,14 @@ function getBrowser() {
 function getMobile() {
     const versions = ['1.0.0', '1.2.0', '2.0.0', '2.1.2'];
     const app = 'example-mobile-app'
-    const isAndroid = faker.datatype.number({min: 1, max: 100}) < 30
+    const isAndroid = faker.number.int({min: 1, max: 100}) < 30
     const application = {
         kind: 'ld_application',
         key: createHash('sha256', app).update(app).digest('hex'),
         name: `Example ${isAndroid ? 'Android' : 'iOS'} App`,
         id: app,
         envAttributesVersion: '1.0.0',
-        version: faker.random.arrayElement(versions),        
+        version: faker.helpers.arrayElement(versions),        
     }
     const device = isAndroid ? {
         kind: 'ld_device',
@@ -75,23 +76,37 @@ function getMobile() {
  * @returns {LaunchDarkly.LDUser}
  */
  function getUser() {
-    const [firstName, lastName] = [faker.name.firstName(), faker.name.lastName()]
-    const username = faker.internet.userName(firstName, lastName)
-    const email = faker.internet.email(username)
+    const [firstName, lastName] = [faker.person.firstName(), faker.person.lastName()]
+    const username = faker.internet.userName({firstName, lastName})
+    const email = faker.internet.email({firstName, lastName})
     const groups = ['admin', 'user', 'editor', 'reviewer', 'author']
     
     const regions = ['us-east-1', 'us-east-2', 'eu-west-1', 'eu-west-2']
+    
     const countryCodes = ['US', 'US', 'US', 'RU', 'CA', 'CA', 'IE', 'GB']
+    const pods = []
+    for(let x of ['US', 'EU', 'AU']) {
+        for (let y of ['PROD', 'UAT']) {
+            for(let i = 1; i <= 3; i++) {
+                pods.push({
+                    kind: 'pod',
+                    key: `pod-${x.toLowerCase()}-${i}-${y.toLowerCase()}`,
+                    name: `${x}-${i}-${y}`,
+                    environment: y,
+                    country: x,
+                })
+            }
+        }
+    }
 
 
-    const anonymous = faker.datatype.number({min: 1, max: 100}) < 60
-    const isMobile = faker.datatype.number({min: 1, max: 100}) < 30
+    const anonymous = faker.number.int({min: 1, max: 100}) < 60
+    const isMobile = faker.number.int({min: 1, max: 100}) < 30
 
     const sessionIdentifer = uuid()
-    const region = faker.random.arrayElement(regions)
-    const addons = ['widget-plus', 
-'widget', 'advanced-metrics', 'ai-powered-upsell', 'bill-pay'] 
-    const plans = ['free', 'basic', 'premium', 'enterprise']
+    const region = faker.helpers.arrayElement(regions)
+    const addons = ['google', 'slack', 'deel'] 
+    const plans = ['workforce-management', 'human-resources', 'payroll', 'benefits', 'time-tracking', 'chat']
 
     const contexts = [];
     contexts.push(getBrowser());
@@ -110,26 +125,30 @@ function getMobile() {
             firstName,
             lastName,
             username,
-            dateOfBirth: faker.date.past(50, new Date("Sat Sep 20 1992 21:35:02 GMT+0200 (CEST)")) * 1000,
-            country: faker.random.arrayElement(countryCodes),
+            dateOfBirth: faker.date.birthdate() * 1000,
+            country: faker.helpers.arrayElement(countryCodes),
             region,
-            addons: faker.random.arrayElements(addons, faker.datatype.number({min: 1, max: 3})),
-            groups: faker.random.arrayElements(groups, faker.datatype.number({min: 1, max: 3})),
+            plan: faker.helpers.arrayElement(plans),
+            addons: faker.helpers.arrayElements(addons, faker.number.int({min: 1, max: 3})),
+            groups: faker.helpers.arrayElements(groups, faker.number.int({min: 1, max: 3})),
             location: {
-                country: faker.random.arrayElement(countryCodes),
-                region: faker.random.arrayElement(regions)
-            }
+                country: faker.helpers.arrayElement(countryCodes),
+            },
+            privateAttributes: ["email", "dateOfBirth"],
         }))
-        const org = faker.random.arrayElement(companies)
-        contexts.push({kind: 'organization',
+        const org = faker.helpers.arrayElement(companies)
+        contexts.push({kind: 'company',
             key: getUserIdentifer(org),
             name: org,
             location: {
-                country: faker.random.arrayElement(countryCodes),
-                region: faker.random.arrayElement(regions)
+                country: faker.helpers.arrayElement(countryCodes),
+                region: faker.helpers.arrayElement(regions)
             }
         })
     }
+    contexts.push(faker.helpers.arrayElement(pods));
+    
+    //console.log('contexts=', contexts, 'merged=', mergeLDContext(...contexts));
 
     return mergeLDContext(...contexts)
 }

@@ -36,7 +36,7 @@ const logger = winston.createLogger({
     winston.format.timestamp({
       format: "YYYY-MM-DD HH:mm:ss",
     }),
-    //winston.format.colorize()
+    winston.format.colorize(),
     winston.format.splat(),
     winston.format.printf(({ timestamp, level, message, ...rest }) => {
       return `${timestamp} [${level}]: ${message} ${JSON.stringify(rest)}`;
@@ -50,4 +50,5 @@ module.exports.setDefaultLogLevel = (level) =>
   (ldTransport.defaultLevel = level);
 module.exports.getDefaultLogLevel = () => ldTransport.defaultLevel;
 module.exports.setLoggerLDClient = (c) => ldTransport.setLDClient(c);
+module.exports.setDefaultLogContext = (c) => ldTransport.setDefaultContext(c);
 module.exports.LD_CONTEXT = LD_CONTEXT;

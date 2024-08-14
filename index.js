@@ -5,7 +5,7 @@ const contrib = require('blessed-contrib')
 const example = require('./example')
 const {readFile} = require('fs').promises
 const {v4: uuid} = require('uuid')
-const faker = require('faker')
+const {faker} = require('@faker-js/faker')
 const pkg = require('./package.json')
 const { DEMO } = process.env
 const GRID_COLS = 24
@@ -13,12 +13,13 @@ const GRID_ROWS = 80
 let USER_COUNT = GRID_COLS * GRID_ROWS
 const {logger, LD_USER} = require('./logger')
 const {withLDContext} = require('./logger-transport')
-const { variation, variationDetail, variationMap} = example
+const { variation, variationDetail, variationMap, emulateMetrics} = example
 const {getUser} = require('./user-generator')
 const {mergeLDContext, getContextKind, sessionContext, userContext, serviceContext, withSession} = require('./ld-context')
 const { merge } = require('blessed/lib/helpers')
 const { Writable } = require('node:stream');
 const winston = require('winston')
+
 
 
 // make the "random" users repeatable 
@@ -216,7 +217,6 @@ async function render() {
   const logger = example.serviceLogger('render')
   
 
-
   const users = await refreshUsers()
   USER_COUNT = rolloutBox.height * rolloutBox.width
   
@@ -299,12 +299,19 @@ async function render() {
   const evals = await Promise.all(users.map(async (user) => {
     const context = demoContext(user)
     const detail = await variationDetail(rolloutFlag, context);
-    logger.debug('wtf', context, detail)
     logger.debug('rollout: evaluated flag: ', withLDContext({
       name: user.name,
       key: user.key,
       flag: rolloutFlag,
     }, context))
+    // do tracking
+    const type = typeof detail.value
+    emulateMetrics(context, {
+      kind: 'flag',
+      key: rolloutFlag,
+      value: detail.value,
+      type: type == 'object' ? 'json' : type,
+    })
     return [user, detail.value]
   }))
   const renderedCells = await Promise.all(evals.map(async ([user, result]) => {
@@ -375,7 +382,11 @@ async function main() {
     allFlagKeys.add(key)
     render()
   })
-  await ld.waitForInitialization();
+  await ld.waitForInitialization({
+    timeoutSeconds: 10
+  });
+  
+  
   refreshDemoConfig()
   const userWatcher = createWatcher('users.json')
   const configWatcher = createWatcher('demo.json')

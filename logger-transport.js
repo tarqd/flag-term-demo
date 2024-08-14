@@ -75,10 +75,15 @@ class LaunchDarklyTransportFilter extends Transform {
     getDefaultContext() {
         if (typeof this.defaultContext === 'function') {
             return this.defaultContext()
-        } else {
+        } else if (!this.defaultContext) {
+            return {"kind": "user", "anonymous": true, "key": "logger"}
+        }else {
             return this.defaultContext
         
         }
+    }
+    setDefaultContext(context) {
+        this.defaultContext = context
     }
     async _process(entry, encoding) {
         const {
@@ -96,8 +101,8 @@ class LaunchDarklyTransportFilter extends Transform {
         const user = entry[LD_CONTEXT] || this.getDefaultContext()
         
         const shouldUseLD = ldClient && ldClient.initialized()
-        const level = shouldUseLD ? await ldClient.variation(flagKey, user, defaultLevel) : defaultLevel
-        const currentLogLevel = levels[level]
+        const currentLogLevel = shouldUseLD ? await ldClient.variation(flagKey, user, levels[defaultLevel]) : levels[defaultLevel]
+        
         const entryLogLevel = levels[entry[LEVEL]]
         if (currentLogLevel >= entryLogLevel) {
             this.push(entry, encoding)

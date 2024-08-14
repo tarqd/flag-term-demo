@@ -10,12 +10,14 @@ const {
 } = require("./logger");
 
 const { withLDContext } = require("./logger-transport");
-const { withService } = require("./ld-context");
+const { withService, mergeLDContext } = require("./ld-context");
+const {faker} = require("@faker-js/faker");
 let ldClient = null;
 
 const EAP_PREFIX = "allow-eap-";
 const CONFIGURE_PREFIX = "config-";
 const GLOBAL_PREFIX = "global-";
+const TRACK_PREFIX = "track-";
 
 
 
@@ -26,14 +28,13 @@ const GLOBAL_PREFIX = "global-";
 function initializeLaunchDarklyClient() {
   return LaunchDarkly.init(process.env.LD_SDK_KEY, {
     capacity: 10000,
-    flushInterval: 1,
+    flushInterval: 3,
     logger: serviceLogger("launchdarkly-sdk"),
-    privateAttributeNames: ["Date of Birth", "Session"],
     application: {
       id: "example-app",
-      name: "Example App",
+      name: "ExampleApp",
       key: "example-app",
-      version: "1.0.0",
+      version: "0.7.0",
     }
   });
 }
@@ -58,9 +59,9 @@ function getLDClient() {
  * @param {string} flag
  * @returns {[string, any][]}
  */
-async function variation(flag, context={}, fallback) {
+async function variation(flag, context={kind: "user", "anonymous": true, "key": "example"}, fallback) {
   const ld = getLDClient();
-  return ld.variation(flag, withService('app', context), fallback);
+  return ld.variation(flag,/* withService('app', context)*/ context, fallback);
 }
 
 
@@ -72,7 +73,7 @@ async function variation(flag, context={}, fallback) {
  */
  async function variationDetail(flag, context={}, fallback) {
     const ld = getLDClient();
-    return ld.variationDetail(flag, withService('app', context), fallback);
+    return ld.variationDetail(flag, context, fallback);
   }
 
 /**
@@ -102,15 +103,15 @@ async function variationMap(user, flagsAndFallbacks) {
  *  @param {string} component
  *  @param {LaunchDarkly.LDContext...} contexts additional contexts to add to the logger
  */
-function serviceLogger(component, contexts) {
-  return logger.child(withLDContext(function() {
-    return withService(component, ...contexts);
-  }))
+function serviceLogger(component, ...contexts) {
+  return logger.child(withLDContext({}, withService(component, ...contexts)));
 }
 
 
 // listen of all EAPs discovered via flag naming convention
 const earlyAccessPrograms = new Set();
+// metric emulation
+const trackedMetrics = new Set();
 
 /**
  * Get all early access program keys
@@ -135,14 +136,59 @@ async function getAvailableEarlyAccessPrograms(user) {
   ).then((results) => results.filter(([allow]) => allow).map(([_, v]) => v));
 }
 
+/**
+ * Get all tracked metrics
+ * @returns {Set<String>}
+ */
+function getTrackedMetrics() {
+  return trackedMetrics;
+}
+/*
+  * Emulate metrics based on tracked flags
+  * @param {LaunchDarkly.LDContext} ldContext
+*/
+async function emulateMetrics(ldContext, flagContext) {
+  const ldClient = getLDClient();
+  const metrics = await Promise.all(Array.from(trackedMetrics.values()).map(async (key) => {
+    const value = await variation(key, mergeLDContext(ldContext, flagContext), {enable: false});
+    return [key, value];
+  }));
+  metrics.filter(([_, {enable}]) => enable).forEach(([key, config]) => {
+    let value = config.value;
+    if (config.faker) {
+      const module = config.faker.module;
+      const options = config.faker.options;
+      const kind = config.faker.kind;
+      value = faker[module][kind](options);
+    }
+    
+    ldClient.track(key, ldContext, config.data, value);
+  });
+  logger.debug("emulated metrics: context=%j,flag=%j, metrics=%j", ldContext,flagContext,  metrics);
+}
+
 function setupEventListeners(client) {
-  client.on("update", ({ key }) => {
+  client.once('ready', () => {
+    client.allFlagsState({anonymous: true, key: "demo"}).then((state) => {
+      const flags = state.toJSON();
+      Object.keys(flags).forEach((key) => handleFlagUpdate({key}));
+    });
+  })
+  client.on("update", handleFlagUpdate);
+}
+
+function handleFlagUpdate({key}) {
+  
+    
+    
     if (key.startsWith(EAP_PREFIX)) {
       handleEAP(key);
+    } else if(key.startsWith(TRACK_PREFIX)) {
+      handleMetric(key)
     } else if (key.startsWith(CONFIGURE_PREFIX)) {
       handleConfiguration(key);
     }
-  });
+  
 }
 
 // application configuration
@@ -195,6 +241,12 @@ function handleEAP(flag) {
   earlyAccessPrograms.add(eapKey);
 }
 
+function handleMetric(flag) {
+  const logger = serviceLogger("metric");
+  logger.debug("discovered metric emulation flag: %s", flag);
+  trackedMetrics.add(flag);
+}
+
 
 function stripPrefix(prefix, key) {
   return key.substring(prefix.length);
@@ -213,6 +265,6 @@ module.exports = {
   variationDetail,
   getAllEarlyAccessPrograms,
   getAvailableEarlyAccessPrograms,
-  serviceLogger
-
+  serviceLogger,
+  emulateMetrics
 };

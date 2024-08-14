@@ -652,3 +652,157 @@ resource launchdarkly_feature_flag_environment "config_rollout_flag" {
   }
 }
 
+resource launchdarkly_feature_flag "track_error_metric" {
+  project_key = launchdarkly_project.term_demo.key
+  key = "track-error-metric"
+  name = "Track: Error Metric"
+  description = "Emulates errors when evaluating flags"
+  variation_type = "json"
+  tags = ["demo", "metric"]
+  temporary = false
+  variations {
+    name = "Disable"
+    value = jsonencode({
+      enable: false,
+    })
+    description = "Metric will not be triggered"
+  }
+  variations {
+    name = "Generic Error"
+    value = jsonencode({
+      enable: true,
+      metric: "Error",
+    })
+    description = "Generate a generic error event"
+  }
+
+
+  defaults {
+    on_variation  = 0
+    off_variation = 0
+  }
+}
+
+
+resource launchdarkly_feature_flag "track_latency_metric" {
+  project_key = launchdarkly_project.term_demo.key
+  key = "track-latency-metric"
+  name = "Track: Latency Metric"
+  description = "Emulates latency when evaluating flags"
+  variation_type = "json"
+  tags = ["demo"]
+  temporary = false
+  variations {
+    name = "Disable"
+    value = jsonencode({
+      enable: false,
+    })
+    description = "Metric will not be triggered"
+  }
+  variations {
+    name = "Low Latency"
+    value = jsonencode({
+      enable: true,
+      metric: "Latency Milliseconds",
+      faker: {
+        module: "number",
+        kind: "float",
+        options: {
+          min: 20,
+          max: 500
+        }
+
+      }
+    })
+  }
+  variations {
+    name = "High Latency"
+    value = jsonencode({
+      enable: true,
+      metric: "Latency Milliseconds",
+      faker: {
+        module: "number",
+        kind: "float",
+        options: {
+          min: 800,
+          max: 1200
+        }
+      }
+    })
+  }
+
+
+  defaults {
+    on_variation  = 0
+    off_variation = 0
+  }
+}
+
+resource launchdarkly_feature_flag_environment "track_error_metric" {
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
+  flag_id = launchdarkly_feature_flag.track_error_metric.id
+  env_key = each.value
+  on = false
+  off_variation = 0
+  # enable if the flag key is release-widget-backend in a rule clause
+  rules {
+    description = "Release Widget Backend Errors"
+    clauses {
+      context_kind = "flag"
+      attribute = "key"
+      op = "in"
+      values = [launchdarkly_feature_flag.release_widget_backend.key]
+    }
+       # percentage rollout by user
+    rollout_weights = [
+      90 * 1000,
+      10 * 1000
+    ]
+  }
+  # errors for frontend
+  rules {
+    description = "Release Widget Errors"
+    clauses {
+      context_kind = "flag"
+      attribute = "key"
+      op = "in"
+      values = [launchdarkly_feature_flag.release_widget.key]
+    }
+    # percentage rollout by user
+    rollout_weights = [
+      90 * 1000,
+      10 * 1000
+    ]
+  }
+  fallthrough {
+    variation = 0
+  }
+}
+
+resource launchdarkly_feature_flag_environment "track_latency_metric" {
+  for_each = toset(launchdarkly_project.term_demo.environments[*].key)
+  flag_id = launchdarkly_feature_flag.track_latency_metric.id
+  env_key = each.value
+  on = false
+  off_variation = 0
+  # enable if the flag key is release-widget-backend in a rule clause
+  rules {
+    description = "Release Widget Backend Latency"
+    clauses {
+      context_kind = "flag"
+      attribute = "key"
+      op = "in"
+      values = [launchdarkly_feature_flag.release_widget_backend.key]
+    }
+    # percentage rollout by user
+    rollout_weights = [
+      0 * 1000,
+      80 * 1000,
+      20 * 1000
+    ]
+  }
+
+  fallthrough {
+    variation = 0
+  }
+}

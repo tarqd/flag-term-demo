@@ -8,11 +8,11 @@
       "groups": ["development", "staff", "frontend-team"],
       "avatar": "https://www.gravatar.com/avatar/f6d09e49a851307c3c9236b0240fc6ea?d=robohash&f=y"
     },
-    "owner": {
-      "key": "1",
-      "name": "Alice Demo",
-      "groups": ["development", "staff", "frontend-team"],
-      "avatar": "https://www.gravatar.com/avatar/f6d09e49a851307c3c9236b0240fc6ea?d=robohash&f=y"
+    "launchdarkly_member": {
+      "key": "tarq",
+      "name": "Tarq",
+      "email": "ctarquini@launchdarkly.com",
+      "groups": ["professional-services"]
     },
     "session": {
       "key": "F7E86BF7-F6E6-4762-920D-7A714E454F3C",
@@ -28,7 +28,7 @@
     "user": {
       "key": "2",
       "name": "Bob Demo",
-      "groups": ["customer"],
+      "groups": ["customer", "staff"],
       "eap-optin": ["widget", "staff", "bill-pay-dashboard"],
       "avatar": "https://www.gravatar.com/avatar/f6d09e49a851307c7c9236b0240fc6ea?d=robohash&f=y"
     },
