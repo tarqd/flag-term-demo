@@ -12,7 +12,9 @@ const serviceAttributes = {
   "Service: Hostname": os.hostname(),
 };
 
-const serviceKey = createHash("sha1").update(`${pkg.name}-${pkg.version}`).digest("hex");
+const serviceKey = createHash("sha1")
+  .update(`${pkg.name}-${pkg.version}`)
+  .digest("hex");
 const serviceName = `${pkg.name} - v${pkg.version}`;
 const serviceHostname = os.hostname();
 
@@ -24,7 +26,9 @@ const serviceHostname = os.hostname();
 function mergeLDContext(...contexts) {
   return Array.from(contexts)
     .map(({ kind, ...attributes }) =>
-      kind == "multi" ? Object.entries(attributes) : [[kind || "user", attributes]]
+      kind == "multi"
+        ? Object.entries(attributes)
+        : [[kind || "user", attributes]]
     )
     .flat()
     .reduce(
@@ -45,20 +49,29 @@ function mergeLDContext(...contexts) {
  *  @param {object} attributes
  */
 function serviceContext(attributes) {
-  const {cpus, timeTotal, idleTotal} = os
-    .cpus()
-    .reduce(({cpus, timeTotal, idleTotal},{ model, speed, times: { user, nice, sys, idle, irq } }) => {
+  const { cpus, timeTotal, idleTotal } = os.cpus().reduce(
+    (
+      { cpus, timeTotal, idleTotal },
+      { model, speed, times: { user, nice, sys, idle, irq } }
+    ) => {
       const total = user + nice + sys + idle + irq;
-      const load = Math.round(((1 - idle / total) + Number.EPSILON) * 100) / 100
+      const load = Math.round((1 - idle / total + Number.EPSILON) * 100) / 100;
       cpus.push({
         model,
         speed,
         load: load,
-      })
-      return {cpus, timeTotal: total + timeTotal, idleTotal: idle + idleTotal}
-    }, {cpus:[], timeTotal:0, idleTotal:0});
-    const load = Math.round(((1 - idleTotal / timeTotal) + Number.EPSILON) * 100) / 100
-    
+      });
+      return {
+        cpus,
+        timeTotal: total + timeTotal,
+        idleTotal: idle + idleTotal,
+      };
+    },
+    { cpus: [], timeTotal: 0, idleTotal: 0 }
+  );
+  const load =
+    Math.round((1 - idleTotal / timeTotal + Number.EPSILON) * 100) / 100;
+
   return {
     kind: "service",
     key: serviceKey,
@@ -85,7 +98,7 @@ function serviceContext(attributes) {
  *  @param {LaunchDarkly.LDContext...} contexts
  */
 function withService(component, ...contexts) {
-  return mergeLDContext(serviceContext({component}), ...contexts);
+  return mergeLDContext(serviceContext({ component }), ...contexts);
 }
 
 /**
@@ -94,7 +107,7 @@ function withService(component, ...contexts) {
  *  @param {object} custom additional custom properties
  */
 function requestContext(attributes) {
-  return {kind: "request",anonymous: true, key: randomUUID(), ...attributes};
+  return { kind: "request", anonymous: true, key: randomUUID(), ...attributes };
 }
 
 /**
@@ -102,22 +115,20 @@ function requestContext(attributes) {
  *  @param {object} attributes additional custom properties
  */
 function sessionContext(attributes) {
-    return {kind: "session", anonymous: true, key: randomUUID(), ...attributes};
+  return { kind: "session", anonymous: true, key: randomUUID(), ...attributes };
 }
 
 function withSession(context) {
-    return mergeLDContext(sessionContext(), context);
+  return mergeLDContext(sessionContext(), context);
 }
-
 
 /**
  *  Create a job context. Used for background jobs
  *  @param {object} attributes additional custom properties
  */
 function jobContext(attributes) {
-  return {kind: "job", key: id || randomUUID(), ...attributes};
+  return { kind: "job", key: id || randomUUID(), ...attributes };
 }
-
 
 /**
  *  Create a user context
@@ -129,7 +140,7 @@ function userContext(user = {}) {
   if (!user.key) {
     attributes.push(["key", randomUUID()]);
   }
-  user.kind = "user"
+  user.kind = "user";
   if (!!user.email && !user.avatar) {
     attributes.push(["avatar", gravatarUrl(user.email)]);
   }
@@ -138,16 +149,14 @@ function userContext(user = {}) {
 }
 
 function getContextKind(kind, context) {
-  if (context.kind == kind || (kind == 'user' && !context.kind)) {
+  if (context.kind == kind || (kind == "user" && !context.kind)) {
     return context;
   } else if (context.kind == "multi") {
     return context[kind] || null;
-  }
-  else {
+  } else {
     return null;
   }
 }
-
 
 function gravatarUrl(email) {
   const hash = createHash("md5")

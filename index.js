@@ -152,6 +152,7 @@ const rolloutDisplay = blessed.text({
 });
 rolloutDisplay.enableMouse();
 screen.append(userBox);
+
 //screen.append(loggerBox)
 
 screen.append(rolloutBox);
@@ -217,9 +218,9 @@ function demoContext(...contexts) {
 async function render() {
   const config = example.getConfig();
   const logger = example.serviceLogger("render");
-
-  const users = await refreshUsers();
   USER_COUNT = rolloutBox.height * rolloutBox.width;
+  const users = await refreshUsers();
+  
 
   while (randomUsers.length < USER_COUNT) {
     randomUsers.push(getUser());
@@ -306,7 +307,8 @@ async function render() {
     demoContext(),
     "release-widget",
   );
-  rolloutBox.setLabel(`${"\033"}[1m${rolloutFlag}${"\033"}[0m`);
+  
+  const variationCounts = [];
   const evals = await Promise.all(
     users.map(async (user) => {
       const context = demoContext(user);
@@ -330,9 +332,16 @@ async function render() {
         value: detail.value,
         type: type == "object" ? "json" : type,
       });
+      if(detail.variationIndex !== null) {
+        variationCounts[detail.variationIndex] = (variationCounts[detail.variationIndex] || 0) + 1;
+      } 
       return [user, detail.value];
     }),
   );
+  const variationSum = variationCounts.reduce((a, b) => a + b, 0);
+  const variationPercentages = variationCounts.map((v) => Math.round((v / variationSum) * 100)).map(v => v+"%")
+  rolloutBox.setLabel(`${"\x1b"}[1m${rolloutFlag}${"\x1b"}[0m [${USER_COUNT}] [${variationCounts.join("/")}] [${variationPercentages.join("/")}]`);
+  
   const renderedCells = await Promise.all(
     evals.map(async ([user, result]) => {
       const type = typeof result;
@@ -404,6 +413,20 @@ async function main() {
     allFlagKeys.add(key);
     render();
   });
+  ld.on("update:show-user-table", async () => {
+    if(await variation("show-user-table", demoContext(), true)) {
+      userBox.show();
+      rolloutBox.top = "50%";
+      rolloutBox.height = "50%";
+      
+    } else {
+      userBox.hide();
+      rolloutBox.top = "0%";
+      rolloutBox.height = "100%";
+    }
+    render();
+    
+  });
   await ld.waitForInitialization({
     timeoutSeconds: 10,
   });
@@ -420,6 +443,7 @@ async function main() {
     example.serviceLogger("config").debug("demo json change detected");
     refreshDemoConfig();
   });
+ 
 }
 main().catch((e) => {
   throw e;
