@@ -26,6 +26,7 @@ const {
 const { merge } = require("blessed/lib/helpers");
 const { Writable } = require("node:stream");
 const winston = require("winston");
+const { get } = require("http");
 
 // make the "random" users repeatable
 faker.seed(0x2bba76d0);
@@ -240,10 +241,10 @@ async function render() {
       flagKeys.map((key) =>
         Promise.all(
           [`{bold}${key}{/bold}`].concat(
-            exampleUsers.map(async (user) => {
-              user = demoContext(user);
-              const detail = await variationDetail(key, user);
-
+            exampleContexts.map(async (ctx) => {
+              ctx = demoContext(ctx);
+              const detail = await variationDetail(key, ctx);
+              let user = getContextKind("user", ctx);
               logger.debug(
                 "table: evaluated flag",
                 withLDContext(
@@ -269,7 +270,7 @@ async function render() {
 
               const color = await variation(
                 "config-table-cell-color",
-                demoContext(context, user),
+                demoContext(context, ctx),
                 detail.value ? "green" : "blue",
               );
               logger.debug("table display: ", {

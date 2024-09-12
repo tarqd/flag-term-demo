@@ -61,6 +61,7 @@ function getLDClient() {
  */
 async function variation(flag, context={kind: "user", "anonymous": true, "key": "example"}, fallback) {
   const ld = getLDClient();
+  // this is where you can add logic such as loading overrides from a file
   return ld.variation(flag,/* withService('app', context)*/ context, fallback);
 }
 
@@ -71,7 +72,7 @@ async function variation(flag, context={kind: "user", "anonymous": true, "key": 
  * @param {string} flag
  * @returns {[string, any][]}
  */
- async function variationDetail(flag, context={}, fallback) {
+ async function variationDetail(flag, context={kind: "user", "anonymous": true, "key": "example"}, fallback) {
     const ld = getLDClient();
     return ld.variationDetail(flag, context, fallback);
   }
