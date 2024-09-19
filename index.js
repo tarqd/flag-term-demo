@@ -11,17 +11,14 @@ const { DEMO } = process.env;
 const GRID_COLS = 24;
 const GRID_ROWS = 80;
 let USER_COUNT = GRID_COLS * GRID_ROWS;
-const { logger, LD_USER } = require("./logger");
+const { logger, LD_CONTEXT } = require("./logger");
 const { withLDContext } = require("./logger-transport");
 const { variation, variationDetail, variationMap, emulateMetrics } = example;
 const { getUser } = require("./user-generator");
 const {
   mergeLDContext,
   getContextKind,
-  sessionContext,
   userContext,
-  serviceContext,
-  withSession,
 } = require("./ld-context");
 const { merge } = require("blessed/lib/helpers");
 const { Writable } = require("node:stream");
@@ -160,12 +157,7 @@ screen.append(rolloutBox);
 screen.enableMouse();
 rolloutBox.focus();
 
-screen.on("resize", () => {
-  if (rolloutBox.height * rolloutBox.width != USER_COUNT) {
-    USER_COUNT = rolloutBox.height * rolloutBox.width;
-    render();
-  }
-});
+
 
 const noop = (info, callback) => {
   //logger.log(info)
@@ -217,6 +209,9 @@ function demoContext(...contexts) {
 }
 
 async function render() {
+  if(!ld.initialized()) {
+    return;
+  }
   const config = example.getConfig();
   const logger = example.serviceLogger("render");
   USER_COUNT = rolloutBox.height * rolloutBox.width;
@@ -258,7 +253,7 @@ async function render() {
                 ),
               );
 
-              const context = {
+              const flagContext = {
                 kind: "flag",
                 key: key,
                 value: detail.value,
@@ -270,11 +265,11 @@ async function render() {
 
               const color = await variation(
                 "config-table-cell-color",
-                demoContext(context, ctx),
+                demoContext(flagContext, ctx),
                 detail.value ? "green" : "blue",
               );
               logger.debug("table display: ", {
-                [LD_USER]: user,
+                [LD_CONTEXT]: user,
                 str,
                 color,
                 key: user.key,
@@ -308,13 +303,13 @@ async function render() {
     demoContext(),
     "release-widget",
   );
-  
+  const emulationQueue = [];
   const variationCounts = [];
   const evals = await Promise.all(
     users.map(async (user) => {
       const context = demoContext(user);
       const detail = await variationDetail(rolloutFlag, context);
-      logger.debug(
+      false && logger.info(
         "rollout: evaluated flag: ",
         withLDContext(
           {
@@ -327,18 +322,28 @@ async function render() {
       );
       // do tracking
       const type = typeof detail.value;
-      emulateMetrics(context, {
+      
+      emulationQueue.push([context, {
         kind: "flag",
         key: rolloutFlag,
         value: detail.value,
         type: type == "object" ? "json" : type,
-      });
+      }]);
+      //logger.debug("queueing emulation", emulationQueue[emulationQueue.length - 1]);  
+      /*await emulateMetrics(context, {
+        kind: "flag",
+        key: rolloutFlag,
+        value: detail.value,
+        type: type == "object" ? "json" : type,
+      });*/
+      
       if(detail.variationIndex !== null) {
         variationCounts[detail.variationIndex] = (variationCounts[detail.variationIndex] || 0) + 1;
       } 
       return [user, detail.value];
     }),
   );
+
   const variationSum = variationCounts.reduce((a, b) => a + b, 0);
   const variationPercentages = variationCounts.map((v) => Math.round((v / variationSum) * 100)).map(v => v+"%")
   rolloutBox.setLabel(`${"\x1b"}[1m${rolloutFlag}${"\x1b"}[0m [${USER_COUNT}] [${variationCounts.join("/")}] [${variationPercentages.join("/")}]`);
@@ -357,23 +362,44 @@ async function render() {
       );
 
       const colorKey = "config-table-cell-color";
+      const bgColorKey = "config-table-cell-bg-color";
 
       const symbolKey = "config-table-cell-symbol";
 
-      const { [colorKey]: color, [symbolKey]: symbol } = await variationMap(
+      const { [colorKey]: color, [symbolKey]: symbol, [bgColorKey]: bgColor } = await variationMap(
         context,
         {
           [colorKey]: !!result ? "green" : "blue",
           [symbolKey]: "█",
+          [bgColorKey]: "black",
         },
       );
-
-      return `{bold}{${color}-fg}${symbol}{/}{/bold}`;
+      
+      //throw new Error(`{bold\}{${color}-fg}{${bgColor}-bg}${symbol}{/${color}-fg}{/${bgColor}-bg}{/bold}`);
+      return `{bold}{${bgColor}-bg}{${color}-fg}${symbol}{/${color}-fg}{/${bgColor}-bg}{/bold}`;
     }),
   );
 
   rolloutDisplay.setContent(renderedCells.join(""));
   screen.render();
+  // save emulation for after render
+  process.nextTick(async () => {
+  ld.flush();
+    let count = 0;
+    
+    for (const [context,flagContext] of emulationQueue) {
+    await emulateMetrics(context, flagContext);
+    
+    count = (count + 1) % 1000;
+    if (count == 0) {
+      logger.debug("early flush");
+      ld.flush();
+      
+    }
+  }
+    logger.debug("flushing after emulation", {count: emulationQueue.length});
+    await ld.flush();
+  });
 }
 
 screen.key(["escape", "q", "C-c"], async function (ch, key) {
@@ -414,7 +440,8 @@ async function main() {
     allFlagKeys.add(key);
     render();
   });
-  ld.on("update:show-user-table", async () => {
+  const refreshLayout = async () => {
+    logger.debug("refreshing layout");
     if(await variation("show-user-table", demoContext(), true)) {
       userBox.show();
       rolloutBox.top = "50%";
@@ -427,12 +454,19 @@ async function main() {
     }
     render();
     
-  });
+  }
+  ld.on("update:show-user-table", refreshLayout);
+  await refreshDemoConfig();
   await ld.waitForInitialization({
     timeoutSeconds: 10,
   });
-
-  refreshDemoConfig();
+  screen.on("resize", () => {
+    if (rolloutBox.height * rolloutBox.width != USER_COUNT) {
+      USER_COUNT = rolloutBox.height * rolloutBox.width;
+      render();
+    }
+  });
+  
   const userWatcher = createWatcher("users.json");
   const configWatcher = createWatcher("demo.json");
   userWatcher.on("change", () => {
@@ -440,9 +474,10 @@ async function main() {
     logger.debug("user json change detected");
     render();
   });
-  configWatcher.on("change", () => {
+  configWatcher.on("change", async () => {
     example.serviceLogger("config").debug("demo json change detected");
-    refreshDemoConfig();
+    await refreshDemoConfig();
+    refreshLayout();
   });
  
 }

@@ -9,7 +9,7 @@ const {
   setDefaultLogLevel,
 } = require("./logger");
 
-const { withLDContext } = require("./logger-transport");
+const { withLDContext, LD_CONTEXT } = require("./logger-transport");
 const { withService, mergeLDContext } = require("./ld-context");
 const {faker} = require("@faker-js/faker");
 let ldClient = null;
@@ -28,8 +28,10 @@ const TRACK_PREFIX = "track-";
 function initializeLaunchDarklyClient() {
   return LaunchDarkly.init(process.env.LD_SDK_KEY, {
     capacity: 10000,
-    flushInterval: 3,
+    flushInterval:1,
     logger: serviceLogger("launchdarkly-sdk"),
+    contextKeysCapacity: 10000,
+    contextKeysFlushInterval: 10,
     application: {
       id: "example-app",
       name: "ExampleApp",
@@ -150,12 +152,17 @@ function getTrackedMetrics() {
 */
 async function emulateMetrics(ldContext, flagContext) {
   const ldClient = getLDClient();
+  
+  const mergedContext = mergeLDContext(ldContext, flagContext);
   const metrics = await Promise.all(Array.from(trackedMetrics.values()).map(async (key) => {
-    const value = await variation(key, mergeLDContext(ldContext, flagContext), {enable: false});
+    const value = await variation(key, mergedContext,{});
     return [key, value];
   }));
-  metrics.filter(([_, {enable}]) => enable).forEach(([key, config]) => {
+  let didIt = false;
+  //logger.debug("emulating metrics", {metrics, mergedContext});
+  metrics.filter(([_, config]) => !!config.key).forEach(([trackKey, config]) => {
     let value = config.value;
+    //logger.debug("emulating metric", {key: config.key, config, value});
     if (config.faker) {
       const module = config.faker.module;
       const options = config.faker.options;
@@ -163,9 +170,20 @@ async function emulateMetrics(ldContext, flagContext) {
       value = faker[module][kind](options);
     }
     
-    ldClient.track(key, ldContext, config.data, value);
+    ldClient.track(config.key, ldContext /*,config.data, config.value*/);
+    didIt = true;
+    logger.debug(`emulated metric: ${config.key}`, {
+      metricKey: config.key,
+      [LD_CONTEXT]: ldContext,
+      context: ldContext,
+      data: config.data,
+      flagKey: trackKey,
+      value,
+    });
   });
-  logger.debug("emulated metrics: context=%j,flag=%j, metrics=%j", ldContext,flagContext,  metrics);
+  if (didIt) {
+   // await ldClient.flush();
+  }
 }
 
 function setupEventListeners(client) {
@@ -208,14 +226,14 @@ async function handleConfiguration(flag) {
   switch (key) {
     // special handling: configure winston
     case "log-verbosity":
-      const level = await variation(flag, user, getDefaultLogLevel() || "warn");
+      /*const level = await variation(flag, user, getDefaultLogLevel() || "debug");
 
       if (level !== undefined) {
         setDefaultLogLevel(level);
         logger.debug("set logging level to %s", level);
       } else {
         logger.error("invalid configuration value: %s %s", flag, level);
-      }
+      }*/
 
       break;
     default:

@@ -71,7 +71,7 @@ function serviceContext(attributes) {
   );
   const load =
     Math.round((1 - idleTotal / timeTotal + Number.EPSILON) * 100) / 100;
-
+  
   return {
     kind: "service",
     key: serviceKey,

@@ -1,1 +1,6 @@
-{}
+{
+    "enable-user-colors": false,
+    "preset": "default",
+    "enable-error-symbol": false,
+    "user-table": false
+}
