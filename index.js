@@ -45,6 +45,17 @@ function generateUsers() {
   }
   return users;
 }
+// debounce fn 
+function debounce(fn, delay) {
+  let timeout;
+  return function() {
+    const args = arguments;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      fn.apply(this, args);
+    }, delay);
+  }
+}
 
 let randomUsers = generateUsers();
 let didEAPs = false;
@@ -56,10 +67,16 @@ async function refreshUsers() {
   } catch (e) {
     logger.error("failed to parse users.json");
   }
+
+  while (randomUsers.length < USER_COUNT) {
+    randomUsers.push(getUser());
+  }
+  
   const randos = randomUsers.slice(
     0,
     randomUsers.length - exampleContexts.length,
   );
+
   const key = "eap-optin";
   if (!didEAPs) {
     for (const context of randos) {
@@ -169,6 +186,8 @@ const noop = (info, callback) => {
 
 const ld = example.getLDClient();
 
+const flushDebounced = debounce(async () => await ld.flush(), 1000);
+
 const allFlagKeys = new Set();
 
 let demoConfig = {};
@@ -218,9 +237,6 @@ async function render() {
   const users = await refreshUsers();
   
 
-  while (randomUsers.length < USER_COUNT) {
-    randomUsers.push(getUser());
-  }
 
   const flagKeys = await getFlagKeysForTable();
 
@@ -345,8 +361,8 @@ async function render() {
   );
 
   const variationSum = variationCounts.reduce((a, b) => a + b, 0);
-  const variationPercentages = variationCounts.map((v) => Math.round((v / variationSum) * 100)).map(v => v+"%")
-  rolloutBox.setLabel(`${"\x1b"}[1m${rolloutFlag}${"\x1b"}[0m [${USER_COUNT}] [${variationCounts.join("/")}] [${variationPercentages.join("/")}]`);
+  const variationPercentages = variationCounts.map((v) => Math.round((v / variationSum) * 100)).map(v => (v||0)+"%")
+  rolloutBox.setLabel(`${"\x1b"}[1m${rolloutFlag}${"\x1b"}[0m [${USER_COUNT}] [${variationCounts.map(v => v || 0).join("/")}] [${variationPercentages.join("/")}]`);
   
   const renderedCells = await Promise.all(
     evals.map(async ([user, result]) => {
@@ -384,7 +400,8 @@ async function render() {
   screen.render();
   // save emulation for after render
   process.nextTick(async () => {
-  ld.flush();
+    return;
+    flushDebounced();
     let count = 0;
     
     for (const [context,flagContext] of emulationQueue) {
@@ -393,7 +410,7 @@ async function render() {
     count = (count + 1) % 1000;
     if (count == 0) {
       logger.debug("early flush");
-      ld.flush();
+      await ld.flush();
       
     }
   }
@@ -402,11 +419,16 @@ async function render() {
   });
 }
 
+
+
 screen.key(["escape", "q", "C-c"], async function (ch, key) {
   await ld.flush();
   await ld.close();
   process.exit(0);
 });
+
+
+
 
 async function refreshDemoConfig() {
   const logger = example.serviceLogger("config");

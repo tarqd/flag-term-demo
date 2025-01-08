@@ -1,5 +1,3 @@
-
-
 const LaunchDarkly = require("@launchdarkly/node-server-sdk");
 
 const {
@@ -11,15 +9,13 @@ const {
 
 const { withLDContext, LD_CONTEXT } = require("./logger-transport");
 const { withService, mergeLDContext } = require("./ld-context");
-const {faker} = require("@faker-js/faker");
+const { faker } = require("@faker-js/faker");
 let ldClient = null;
 
 const EAP_PREFIX = "allow-eap-";
 const CONFIGURE_PREFIX = "config-";
 const GLOBAL_PREFIX = "global-";
 const TRACK_PREFIX = "track-";
-
-
 
 /**
  * Returns an initalized LaunchDarkly Client
@@ -28,7 +24,7 @@ const TRACK_PREFIX = "track-";
 function initializeLaunchDarklyClient() {
   return LaunchDarkly.init(process.env.LD_SDK_KEY, {
     capacity: 10000,
-    flushInterval:1,
+    flushInterval: 1,
     logger: serviceLogger("launchdarkly-sdk"),
     contextKeysCapacity: 10000,
     contextKeysFlushInterval: 10,
@@ -37,7 +33,7 @@ function initializeLaunchDarklyClient() {
       name: "ExampleApp",
       key: "example-app",
       version: "0.7.0",
-    }
+    },
   });
 }
 
@@ -61,12 +57,15 @@ function getLDClient() {
  * @param {string} flag
  * @returns {[string, any][]}
  */
-async function variation(flag, context={kind: "user", "anonymous": true, "key": "example"}, fallback) {
+async function variation(
+  flag,
+  context = { kind: "user", anonymous: true, key: "example" },
+  fallback,
+) {
   const ld = getLDClient();
   // this is where you can add logic such as loading overrides from a file
-  return ld.variation(flag,/* withService('app', context)*/ context, fallback);
+  return ld.variation(flag, /* withService('app', context)*/ context, fallback);
 }
-
 
 /**
  * Wrapper around variationDetail calls
@@ -74,10 +73,14 @@ async function variation(flag, context={kind: "user", "anonymous": true, "key": 
  * @param {string} flag
  * @returns {[string, any][]}
  */
- async function variationDetail(flag, context={kind: "user", "anonymous": true, "key": "example"}, fallback) {
-    const ld = getLDClient();
-    return ld.variationDetail(flag, context, fallback);
-  }
+async function variationDetail(
+  flag,
+  context = { kind: "user", anonymous: true, key: "example" },
+  fallback,
+) {
+  const ld = getLDClient();
+  return ld.variationDetail(flag, context, fallback);
+}
 
 /**
  * Returns a map of multiple flags to their values
@@ -94,12 +97,10 @@ async function variationMap(user, flagsAndFallbacks) {
     await Promise.all(
       entries.map(async ([flag, fallback]) => {
         return [flag, await variation(flag, user, fallback)];
-      })
-    )
+      }),
+    ),
   );
 }
-
-
 
 /**
  *  Create a service logger
@@ -109,7 +110,6 @@ async function variationMap(user, flagsAndFallbacks) {
 function serviceLogger(component, ...contexts) {
   return logger.child(withLDContext({}, withService(component, ...contexts)));
 }
-
 
 // listen of all EAPs discovered via flag naming convention
 const earlyAccessPrograms = new Set();
@@ -135,7 +135,7 @@ async function getAvailableEarlyAccessPrograms(user) {
     Array.from(eaps).map(async (v) => [
       await variation(`${EAP_PREFIX}${v}`, user, false),
       v,
-    ])
+    ]),
   ).then((results) => results.filter(([allow]) => allow).map(([_, v]) => v));
 }
 
@@ -147,67 +147,67 @@ function getTrackedMetrics() {
   return trackedMetrics;
 }
 /*
-  * Emulate metrics based on tracked flags
-  * @param {LaunchDarkly.LDContext} ldContext
-*/
+ * Emulate metrics based on tracked flags
+ * @param {LaunchDarkly.LDContext} ldContext
+ */
 async function emulateMetrics(ldContext, flagContext) {
   const ldClient = getLDClient();
-  
+
   const mergedContext = mergeLDContext(ldContext, flagContext);
-  const metrics = await Promise.all(Array.from(trackedMetrics.values()).map(async (key) => {
-    const value = await variation(key, mergedContext,{});
-    return [key, value];
-  }));
+  const metrics = await Promise.all(
+    Array.from(trackedMetrics.values()).map(async (key) => {
+      const value = await variation(key, mergedContext, {});
+      return [key, value];
+    }),
+  );
   let didIt = false;
   //logger.debug("emulating metrics", {metrics, mergedContext});
-  metrics.filter(([_, config]) => !!config.key).forEach(([trackKey, config]) => {
-    let value = config.value;
-    //logger.debug("emulating metric", {key: config.key, config, value});
-    if (config.faker) {
-      const module = config.faker.module;
-      const options = config.faker.options;
-      const kind = config.faker.kind;
-      value = faker[module][kind](options);
-    }
-    
-    ldClient.track(config.key, ldContext /*,config.data, config.value*/);
-    didIt = true;
-    logger.debug(`emulated metric: ${config.key}`, {
-      metricKey: config.key,
-      [LD_CONTEXT]: ldContext,
-      context: ldContext,
-      data: config.data,
-      flagKey: trackKey,
-      value,
+  metrics
+    .filter(([_, config]) => !!config.key)
+    .forEach(([trackKey, config]) => {
+      let value = config.value;
+      //logger.debug("emulating metric", {key: config.key, config, value});
+      if (config.faker) {
+        const module = config.faker.module;
+        const options = config.faker.options;
+        const kind = config.faker.kind;
+        value = faker[module][kind](options);
+      }
+
+      ldClient.track(config.key, ldContext /*,config.data, config.value*/);
+      didIt = true;
+      logger.debug(`emulated metric: ${config.key}`, {
+        metricKey: config.key,
+        [LD_CONTEXT]: ldContext,
+        context: ldContext,
+        data: config.data,
+        flagKey: trackKey,
+        value,
+      });
     });
-  });
   if (didIt) {
-   // await ldClient.flush();
+    // await ldClient.flush();
   }
 }
 
 function setupEventListeners(client) {
-  client.once('ready', () => {
-    client.allFlagsState({anonymous: true, key: "demo"}).then((state) => {
+  client.once("ready", () => {
+    client.allFlagsState({ anonymous: true, key: "demo" }).then((state) => {
       const flags = state.toJSON();
-      Object.keys(flags).forEach((key) => handleFlagUpdate({key}));
+      Object.keys(flags).forEach((key) => handleFlagUpdate({ key }));
     });
-  })
+  });
   client.on("update", handleFlagUpdate);
 }
 
-function handleFlagUpdate({key}) {
-  
-    
-    
-    if (key.startsWith(EAP_PREFIX)) {
-      handleEAP(key);
-    } else if(key.startsWith(TRACK_PREFIX)) {
-      handleMetric(key)
-    } else if (key.startsWith(CONFIGURE_PREFIX)) {
-      handleConfiguration(key);
-    }
-  
+function handleFlagUpdate({ key }) {
+  if (key.startsWith(EAP_PREFIX)) {
+    handleEAP(key);
+  } else if (key.startsWith(TRACK_PREFIX)) {
+    handleMetric(key);
+  } else if (key.startsWith(CONFIGURE_PREFIX)) {
+    handleConfiguration(key);
+  }
 }
 
 // application configuration
@@ -217,10 +217,10 @@ async function handleConfiguration(flag) {
   const ld = getLDClient();
   const key = stripPrefix(CONFIGURE_PREFIX, flag);
   const user = {
-    kind: 'service',
+    kind: "service",
     key: "app-config",
     anonymous: true,
-  }
+  };
   const logger = serviceLogger("config");
 
   switch (key) {
@@ -266,7 +266,6 @@ function handleMetric(flag) {
   trackedMetrics.add(flag);
 }
 
-
 function stripPrefix(prefix, key) {
   return key.substring(prefix.length);
 }
@@ -285,5 +284,5 @@ module.exports = {
   getAllEarlyAccessPrograms,
   getAvailableEarlyAccessPrograms,
   serviceLogger,
-  emulateMetrics
+  emulateMetrics,
 };

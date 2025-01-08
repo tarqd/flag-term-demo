@@ -26,7 +26,7 @@ const ldTransport = new LaunchDarklyTransportFilter({
   flagKey: "config-log-verbosity",
 });
 
-ldTransport.pipe(file);
+//ldTransport.pipe(file);
 
 const logger = winston.createLogger({
   levels: levels,
