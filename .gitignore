@@ -16,3 +16,4 @@ old
 .lsp
 .clj-kondo/
 users.ukg.json
+**/.DS_Store
