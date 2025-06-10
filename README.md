@@ -3,12 +3,12 @@
 ![screenshot](./screenshot.png)
 
 
-- Creates 1920 fake users using faker
-- Allows you to add custom users from users.json
+- Creates fake contexts using faker
+- Allows you to add custom contexts from users.json
 - Displays the flag evaluations for custom users in a table
 - Show logs from the launchdarkly SDK
 - Automatically refreshes when rules or users.json change
-- Evaluates a flag called `release-widget` for all custom+generated users
+- Evaluates a flag called `release-widget` (or controlled by feature flag) for all custom+generated contexts
 	- Evaluation results are displayed in a grid where the cell is either green (true) or blue (false)
 
 You can demonstrate the determinism of rollouts by:
