@@ -100,11 +100,14 @@ class LaunchDarklyTransportFilter extends Transform {
         
         const user = entry[LD_CONTEXT] || this.getDefaultContext()
         
-        const shouldUseLD = false && ldClient && ldClient.initialized()
+        const shouldUseLD = ldClient && ldClient.initialized()
+        
         const currentLogLevel = shouldUseLD ? await ldClient.variation(flagKey, user, levels[defaultLevel]) : levels[defaultLevel]
         
         const entryLogLevel = levels[entry[LEVEL]]
+        
         if (currentLogLevel >= entryLogLevel) {
+            
             this.push(entry, encoding)
         }
     }

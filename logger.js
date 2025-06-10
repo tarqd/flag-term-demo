@@ -22,7 +22,7 @@ const file = new winston.transports.File({
 
 const ldTransport = new LaunchDarklyTransportFilter({
   levels,
-  defaultLevel: "debug",
+  defaultLevel: "warning",
   flagKey: "config-log-verbosity",
 });
 

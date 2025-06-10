@@ -79,6 +79,7 @@ function getBrowser() {
     id: id[browser],
     name: `${browser} ${browserVersion}`,
     version: browserVersion,
+    anonymous: true,
   };
 }
 function serviceContext(attributes) {
@@ -139,6 +140,7 @@ function getMobile() {
     ld_device: device,
   };
 }
+
 /**
  * Returns a randomly generated user (for demo purposes)
  * Takes in a set of properties to merge into the random user
@@ -155,8 +157,9 @@ function getUser() {
   const groups = ["admin", "user", "editor", "reviewer", "author"];
 
   const regions = ["us-east-1", "us-east-2", "eu-west-1", "eu-west-2"];
-
+ 
   const countryCodes = ["US", "US", "US", "RU", "CA", "CA", "IE", "GB"];
+  
   const pods = [];
   for (let x of ["US", "EU", "AU"]) {
     for (let y of ["PROD", "UAT"]) {
@@ -223,16 +226,17 @@ function getUser() {
         privateAttributes: ["email", "dateOfBirth"],
       })
     );
-    const org = faker.helpers.arrayElement(companies);
+    /*const org = faker.helpers.arrayElement(companies);
     contexts.push({
       kind: "company",
       key: getUserIdentifer(org),
       name: org,
+      numberOfUsers: getNumberOfUsers(org),
       location: {
         country: faker.helpers.arrayElement(countryCodes),
         region: faker.helpers.arrayElement(regions),
       },
-    });
+    });*/
   }
   contexts.push(faker.helpers.arrayElement(pods));
   contexts.push(getConfiguration());
@@ -242,6 +246,10 @@ function getUser() {
   return mergeLDContext(...contexts);
 }
 
+// convert the first 4 characters of a sha256 hash to a number
+function getNumberOfUsers(hash) {
+  return parseInt(hash.substring(0, 4), 16) % 1000;
+}
 /**
  * Returns the user identifer for a given username. Uses an HMAC for the demo purposes.
  * @param {string} username

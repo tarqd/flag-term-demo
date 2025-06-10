@@ -12,3 +12,7 @@ trigger.sh
 .terraform/*
 .terraform.lock.hcl
 .vscode/launch.json
+old
+.lsp
+.clj-kondo/
+users.ukg.json

@@ -312,7 +312,8 @@ async function render() {
     table.push(["available eaps"].concat(eaps.map((v) => v.join(","))));
   }
   userTable.setData(table);
-
+  screen.render();
+  await ld.flush();
   //screen.render()
   const rolloutFlag = await variation(
     "config-rollout-flag",

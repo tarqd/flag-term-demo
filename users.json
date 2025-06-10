@@ -1,55 +1,101 @@
-[
-  {
-    "kind": "multi",
-    "user": {
-      "key": "1",
-      "name": "Alice Demo",
-      "country": "",
-      "groups": ["development", "staff", "frontend-team"],
-      "avatar": "https://www.gravatar.com/avatar/f6d09e49a851307c3c9236b0240fc6ea?d=robohash&f=y"
-    },
-    "launchdarkly_member": {
-      "key": "tarq",
-      "name": "Tarq",
-      "email": "ctarquini@launchdarkly.com",
-      "groups": ["professional-services"]
-    },
-    "session": {
-      "key": "F7E86BF7-F6E6-4762-920D-7A714E454F3C",
-      "anonymous": true
-    },
-    "device": {
-      "key": "5cebb585-47d2-443e-9097-62da16c18cd8",
-      "name": "Alice's Dev Box"
-    }
+[{
+  "kind": "multi",
+  "user": {
+    "key": "1",
+    "name": "Alice Demo",
+    "groups": ["customer", "staff"],
+    "eap-optin": ["widget", "staff", "bill-pay-dashboard"]
   },
-  {
-    "kind": "multi",
-    "user": {
-      "key": "2",
-      "name": "Bob Demo",
-      "groups": ["customer", "staff"],
-      "eap-optin": ["widget", "staff", "bill-pay-dashboard"],
-      "avatar": "https://www.gravatar.com/avatar/f6d09e49a851307c7c9236b0240fc6ea?d=robohash&f=y"
-    },
-    "session": {
-      "key": "D1F93504-2C67-4269-9157-909D0E7FD3F1",
-      "anonymous": true
-    }
+  "launchdarkly_member": {
+    "key": "tarq",
+    "name": "Tarq",
+    "email": "ctarquini@launchdarkly.com",
+    "groups": ["professional-services"]
   },
-  {
-    "kind": "multi",
-    "user": {
-      "key": "3",
-      "name": "Carol Demo",
-      "groups": ["customer"],
-      "eap-optin": ["widget"],
-      "Session": "D1F93504-2C67-4269-9157-909D0E7FD3F1",
-      "avatar": "https://www.gravatar.com/avatar/f6d09e49a851307c3c9235b0240fc6ea?d=robohash&f=y"
-    },
-    "session": {
-      "key": "442A8235-4CC3-4912-B145-A2D980CB7C17",
-      "anonymous": true
-    }
+  "session": {
+    "key": "F7E86BF7-F6E6-4762-920D-7A714E454F3C",
+    "anonymous": true
+  },
+  "deployment": {
+    "key": "00716403-4f16-4bac-a246-7348670043df",
+    "name": "colorless-ephemera-hr-service-delivery-production-eu-west-2",
+    "zone": "east",
+    "region": "us",
+    "datacenter": "us-east-1",
+    "env": "test",
+    "project": "hr-service-delivery",
+    "instance": "m8g.medium"
+  },
+  "tenant": {
+    "key": "0aa7fc8cc02c5fs805309cd8b4038a89a752003c88e5b4191303bd9a1fbe0cf89",
+    "name": "Alice's Tenant",
+    "type": "ready",
+    "alias": "Alice's Tenant",
+    "id": "c1614caac158e016a838c7s22b043c855b9c66fcc0db1c82f00e6d30d967c52d1"
+  },
+  "product": {
+    "key": "ABC",
+    "name": "ABC Product"
   }
-]
+  ,
+  "ld_application": {
+    "key": "d93ef730-1c39-4ef3-b991-532a0f3c8774cd",
+    "id": "com.ukg.wfm.app",
+    "locale": "en-US",
+    "name": "UKG Workforce Management",
+    "version": "3.4.1",
+    "versionName": "3.4.1-release",
+    "envAttributesVersion": "1"
+  },
+  "test": {
+    "key": "example-test-id",
+    "name": "Example Test",
+      "enabledFlags": ["release-widget", "some-other-flag"],
+      "disabledFlags": []
+  }
+}, {
+  "kind": "multi",
+  "user": {
+    "key": "2",
+    "name": "Bob Demo",
+    "groups": ["customer", "staff"],
+    "eap-optin": ["widget", "staff", "bill-pay-dashboard"]
+  },
+  "product": {
+    "key": "ABC",
+    "name": "ABC Product"
+  },
+  "session": {
+    "key": "D1F93504-2C67-4269-9157-909D0E7FD3F1",
+    "anonymous": true
+  },
+  "company": {
+    "key": "bob-company",
+    "name": "Bob's Instance",
+    "internal": true
+  },
+  "pull-request": {
+    "key": "pr-12",
+    "title": "PR 12: Fix bug",
+    "commit": "1234567890",
+    "host": "pr-12.dev.example.com"
+  }
+}, {
+  "kind": "multi",
+  "user": {
+    "key": "3",
+    "name": "Carol Demo",
+    "groups": ["customer"],
+    "eap-optin": ["widget"],
+    "avatar": "https://www.gravatar.com/avatar/f6d09e49a851307c3c9235b0240fc6ea?d=robohash&f=y"
+  },
+  "company": {
+    "key": "sales-company",
+    "name": "Sales Instance",
+    "internal": true
+  },
+  "session": {
+    "key": "442A8235-4CC3-4912-B145-A2D980CB7C17",
+    "anonymous": true
+  }
+}]
