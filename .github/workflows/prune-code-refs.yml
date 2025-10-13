@@ -1,0 +1,12 @@
+name: Delete LaunchDarkly Branch
+on:
+  delete:
+
+jobs:
+  delete-ld-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete LaunchDarkly Code Refs Branch
+        uses: launchdarkly-labs/launchdarkly-code-ref-delete-branch-github-action@v1
+        with:
+          access-token: ${{ secrets.LD_ACCESS_TOKEN }}
